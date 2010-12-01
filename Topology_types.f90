@@ -18,14 +18,15 @@ MODULE TOPOLOGY_TYPES
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp_evec
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: CTpp_eval
   COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
-  COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_clm
+!  COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_clm
 
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: w8ring
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
   CHARACTER(len=80) :: wmap_signal_file, wmap_noise_file, wmap_mask_file
-  CHARACTER(len=80) :: fake_file, w8_file, beam_file
+  CHARACTER(len=80) :: w8_file, beam_file
   CHARACTER(len=100) :: infile
+  CHARACTER(len=100) :: fake_file
 
   REAL(DP) :: epsil, condition_num
   INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, mode_number
@@ -35,7 +36,7 @@ MODULE TOPOLOGY_TYPES
 
   NAMELIST /toplike/  wmap_signal_file, wmap_noise_file,  wmap_mask_file, &
        nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &
-       nice_output, make_map, add_map_noise, do_smooth, fake_file, &
+       nice_output, make_map, add_map_noise, do_smooth, &
        iseed, SVD, epsil, mode_number
 
   

@@ -1,7 +1,7 @@
 # ------------------- Variables, environment  ----------------
 SHELL	= /bin/sh
 MODULEDIR1 = include
-MODULEDIR2 = ../../include
+MODULEDIR2 = ../include
 
 # ------------------- Variables, compiler     ----------------
 
@@ -15,7 +15,7 @@ LDFLAGS	=
 
 # ------------------- Variables, libraries    ----------------
 
-NRECIPES = ../../nr/librecipes_f90.a
+NRECIPES = ../nr/librecipes_f90.a
 
 # MKL_ROOT is set by intel shell script, source it in .bashrc
 # source /opt/intel/Compiler/$(INTEL_VERSION)/mkl
@@ -42,7 +42,7 @@ LIB 	= -Vaxlib $(LAPACK) -lguide -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 
-OBJ    	= nml_mod.o Topology_types.o Topology_map_mod.o Topology_map_mod_nel.o nr_minimization.o ctpp_eigen_mod.o lm_rotate.o Topology_Lmarg_mod.o Topology_Lmarg.o
+OBJ    	= nml_mod.o Topology_types.o Topology_map_mod.o Topology_map_mod_nel.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 
 # ------------------------- Rules ----------------------------
 

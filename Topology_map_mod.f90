@@ -157,7 +157,7 @@ CONTAINS
     CALL add_card(header,'COMMENT','GRAIN=1 : 1 pixel index -> 1 pixel data                     (EXPLICIT)')
     CALL add_card(header,'COMMENT','GRAIN>1 : 1 pixel index -> data of GRAIN consecutive pixels (EXPLICIT)')
     CALL add_card(header) ! blank line
-    fake_file="./maps/"//TRIM(ADJUSTL(infile(25:100)))//"modenum_fake.fits"
+    fake_file=TRIM(ADJUSTL(fake_file))//"_fake.fits"
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
        OPEN(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')

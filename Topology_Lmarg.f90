@@ -10,7 +10,8 @@ PROGRAM Topology_Lmarg
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
-  USE lm_rotate, only : getcplm
+  USE lm_rotate, ONLY : getcplm
+  USE PIX_TOOLS
   IMPLICIT NONE
 
   INTEGER :: iargc
@@ -24,7 +25,7 @@ PROGRAM Topology_Lmarg
   integer :: iter
   CHARACTER(LEN=80) :: modefile
 
-  !character(len=100) :: infile
+!  character(len=100) :: infile
 
   IF (iargc() == 0) STOP 'Usage: topmarg <input file>'
 
@@ -82,27 +83,28 @@ PROGRAM Topology_Lmarg
   ELSE
      WRITE(0,*) 'Using Cholesky decomposition method'
   ENDIF
-
 !-------------------------------------------------------------------
-
-  allocate(pixels(3,npix_fits))
-  allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
   write(0,'(''File with CTpp - '',$)')
   read(*,'(a)') infile
   open(102,file=TRIM(infile),status='old',form='unformatted')
-!  read(102) npix_fits
+  read(102) npix_fits
+  write(0,*)'npix=',npix_fits
+  nside=npix2nside(npix_fits)
+  allocate(pixels(3,npix_fits))
+  allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
   read(102)pixels
   read(102)CTpp_evec
   close(102)
   deallocate(pixels)
 !-------------------------------------------------------------------
+  write(0,'(''Map Output (make fake map)- '',$)')
+  read(*,'(a)') fake_file
+!-------------------------------------------------------------------
 
 !  if ( npix_fits /= 12*nside*nside ) then
-!     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
+        !     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
 !     stop
 !  endif
-  npix_fits = 12*nside*nside
-
   nmaps     = 1
 
   CALL ReadWMAP_map()
@@ -120,7 +122,6 @@ PROGRAM Topology_Lmarg
   allocate(CTpp_eval(0:npix_fits-1))
   allocate(CTpp(0:npix_cut-1,0:npix_cut-1))
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
-
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES()
@@ -131,7 +132,7 @@ PROGRAM Topology_Lmarg
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      allocate(CTpp_cplm(0:lmax*(lmax+2),0:npix_fits-1))
-     allocate(CTpp_clm(0:lmax*(lmax+2),0:lmax*(lmax+2)))
+     !allocate(CTpp_clm(0:lmax*(lmax+2),0:lmax*(lmax+2)))
      CALL Read_w8ring()
      CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,lmax,w8ring)
      if (SVD) then

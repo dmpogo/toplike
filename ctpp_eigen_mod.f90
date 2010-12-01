@@ -12,7 +12,6 @@ CONTAINS
 
    integer :: ival,INFO
    real(DP), allocatable, dimension(:) :: WORK
-  
       allocate(WORK(0:3*npix_fits-1))
       call DSYEV('V','L',npix_fits,CTpp_evec,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
       deallocate(WORK)
