@@ -89,7 +89,10 @@ PROGRAM Topology_Lmarg
   open(102,file=TRIM(infile),status='old',form='unformatted')
   read(102) npix_fits
   write(0,*)'npix=',npix_fits
-  nside=npix2nside(npix_fits)
+  if ( nside /= npix2nside(npix_fits) ) then
+     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
+     stop
+  endif
   allocate(pixels(3,npix_fits))
   allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
   read(102)pixels
@@ -101,10 +104,6 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') fake_file
 !-------------------------------------------------------------------
 
-!  if ( npix_fits /= 12*nside*nside ) then
-        !     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
-!     stop
-!  endif
   nmaps     = 1
 
   CALL ReadWMAP_map()
