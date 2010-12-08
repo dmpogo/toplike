@@ -42,43 +42,43 @@ CONTAINS
     !calculate Hermitean square root of correlation matrix. Spoils
 
     mata=CTpp*exp(ampl)
-    IF(SVD) THEN
-       WRITE(0,*)"Doing SVD MAP"
-       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-       ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-       ALLOCATE(WORKNEL(0:5*npix_cut))
-       INFO = 0
-       DO i = 0, npix_cut-1
-          DO j = i, npix_cut-1
-             mata(i,j) = mata(j,i)
-          ENDDO
-       ENDDO
-!    Do general SVD 
-       CALL DGESVD('A','A',npix_cut,npix_cut,mata,npix_cut,evals,&
-                  & U,npix_cut,VT,npix_cut,WORKNEL,5*npix_cut,INFO)
-       IF(INFO/=0) THEN
-          write(0,*) "DGESVD info=", INFO
-          STOP 'Error SVD DGESVD'
-       ENDIF
-       DO i = 0, mode_number
-          IF(abs(evals(i)) == 0.0) THEN
-             VT(i,:) = 0.0d0
-          ELSE
-             VT(i,:) = VT(i,:)*SQRT(evals(i))
-          ENDIF
-       ENDDO
-       IF(mode_number<npix_cut-1) THEN
-          DO i = mode_number+1, npix_cut-1
-             VT(i,:) = 0.0d0
-          ENDDO
-       ENDIF
-
-       CALL DGEMM('N','N',npix_cut,npix_cut,npix_cut,1.0d0,U,npix_cut,&
-                 & VT,npix_cut,0.0d0,matb,npix_cut)
-       DEALLOCATE(U)
-       DEALLOCATE(VT)
-       DEALLOCATE(WORKNEL)
-    ELSE
+!    IF(SVD) THEN
+!       WRITE(0,*)"Doing SVD MAP"
+!       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
+!       ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
+!       ALLOCATE(WORKNEL(0:5*npix_cut))
+!       INFO = 0
+!       DO i = 0, npix_cut-1
+!          DO j = i, npix_cut-1
+!             mata(i,j) = mata(j,i)
+!          ENDDO
+!       ENDDO
+!!    Do general SVD 
+!       CALL DGESVD('A','A',npix_cut,npix_cut,mata,npix_cut,evals,&
+!                  & U,npix_cut,VT,npix_cut,WORKNEL,5*npix_cut,INFO)
+!       IF(INFO/=0) THEN
+!          write(0,*) "DGESVD info=", INFO
+!          STOP 'Error SVD DGESVD'
+!       ENDIF
+!       DO i = 0, mode_number
+!          IF(abs(evals(i)) == 0.0) THEN
+!             VT(i,:) = 0.0d0
+!          ELSE
+!             VT(i,:) = VT(i,:)*SQRT(evals(i))
+!          ENDIF
+!       ENDDO
+!       IF(mode_number<npix_cut-1) THEN
+!          DO i = mode_number+1, npix_cut-1
+!             VT(i,:) = 0.0d0
+!          ENDDO
+!       ENDIF
+!
+!       CALL DGEMM('N','N',npix_cut,npix_cut,npix_cut,1.0d0,U,npix_cut,&
+!                 & VT,npix_cut,0.0d0,matb,npix_cut)
+!       DEALLOCATE(U)
+!       DEALLOCATE(VT)
+!       DEALLOCATE(WORKNEL)
+!    ELSE !Cholesky methode
        CALL dsyev('V', 'L', npix_cut, mata, npix_cut, evals, ework, &
                  & 10*npix_cut,INFO)
        IF(INFO == 0) THEN
@@ -96,7 +96,7 @@ CONTAINS
 
        CALL dsyrk('L', 'N', npix_cut, npix_cut, 1.0d0, mata, npix_cut,&
             &0.0d0, matb, npix_cut)
-    ENDIF
+!    ENDIF
 
     DEALLOCATE(mata)
 

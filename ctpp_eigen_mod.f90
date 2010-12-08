@@ -53,54 +53,54 @@ CONTAINS
       return
    end subroutine NORMALIZE_EIGENVALUES
 
-   subroutine MODECOUNTER()
-   integer :: i,j,INFO
-   real(DP), dimension(:), allocatable :: D,WORK
-   real(DP), dimension(:,:), allocatable :: VT,U
-   real(DP), dimension(:,:), allocatable :: Ctpp_evec_0
-       IF (do_rotate) THEN
-          allocate(CTpp_evec_0(0:npix_fits-1,0:npix_fits-1))
-          call rotate_ctpp(CTpp_evec_0,CTpp_cplm,nside,lmax,0.0d0,0.0d0,0.0d0,.TRUE.)
-          call RECONSTRUCT_FROM_EIGENVALUES(Ctpp_evec_0)
-          deallocate(CTpp_evec_0)
-       ENDIF
-
-       IF(SVD) THEN
-          ALLOCATE(D(0:npix_cut-1))
-          ALLOCATE(WORK(0:5*npix_cut))
-          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-          ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-          INFO = 0
-          DO i = 0, npix_cut-1
-             DO j = i, npix_cut-1
-                CTpp(i,j) = CTpp(j,i)
-             ENDDO
-          ENDDO
-          INFO = 0
+!   subroutine MODECOUNTER()
+!   integer :: i,j,INFO
+!   real(DP), dimension(:), allocatable :: D,WORK
+!   real(DP), dimension(:,:), allocatable :: VT,U
+!   real(DP), dimension(:,:), allocatable :: Ctpp_evec_0
+!       IF (do_rotate) THEN
+!          allocate(CTpp_evec_0(0:npix_fits-1,0:npix_fits-1))
+!          call rotate_ctpp(CTpp_evec_0,CTpp_cplm,nside,lmax,0.0d0,0.0d0,0.0d0,.TRUE.)
+!          call RECONSTRUCT_FROM_EIGENVALUES(Ctpp_evec_0)
+!          deallocate(CTpp_evec_0)
+!       ENDIF
+!
+!       IF(SVD) THEN
+!          ALLOCATE(D(0:npix_cut-1))
+!          ALLOCATE(WORK(0:5*npix_cut))
+!          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
+!          ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
+!          INFO = 0
+!          DO i = 0, npix_cut-1
+!             DO j = i, npix_cut-1
+!                CTpp(i,j) = CTpp(j,i)
+!             ENDDO
+!          ENDDO
+!          INFO = 0
 !    Do general SVD 
-          CALL DGESVD('A','A',npix_cut,npix_cut,CTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
-          IF(INFO/=0) THEN
-             write(0,*) "DGESVD info=", INFO
-             STOP 'Error SVD DGESVD'
-          ENDIF
+!          CALL DGESVD('A','A',npix_cut,npix_cut,CTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
+!          IF(INFO/=0) THEN
+!             write(0,*) "DGESVD info=", INFO
+!             STOP 'Error SVD DGESVD'
+!          ENDIF
 !    Determine the number of usable modes
-          DO i = 0, npix_cut-1
-             if((D(i)/D(0))<condition_num) then
-                mode_number = i-1
-                goto 9001
-             endif
-          ENDDO
-          mode_number = npix_cut-1
-9001      continue
-          DEALLOCATE(D)
-          DEALLOCATE(WORK)
-          DEALLOCATE(VT)
-          DEALLOCATE(U)
-       ELSE
+!          DO i = 0, npix_cut-1
+!             if((D(i)/D(0))<condition_num) then
+!                mode_number = i-1
+!                goto 9001
+!             endif
+!          ENDDO
+!          mode_number = npix_cut-1
+!9001      continue
+!          DEALLOCATE(D)
+!          DEALLOCATE(WORK)
+!          DEALLOCATE(VT)
+!          DEALLOCATE(U)
+!       ELSE
 !NELSON ADD CHOLESKY mode number
-       ENDIF
-       write(0,*) "Number of modes =",mode_number
-       write(0,*) "Condition number =",condition_num
-       return
-   end subroutine MODECOUNTER
+!       ENDIF
+!       write(0,*) "Number of modes =",mode_number
+!       write(0,*) "Condition number =",condition_num
+!       return
+!   end subroutine MODECOUNTER
 END MODULE ctpp_eigen_mod

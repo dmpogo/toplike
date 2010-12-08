@@ -187,46 +187,46 @@ MODULE Topology_Lmarg_mod
        ENDDO
 
        ALLOCATE(D(0:npix_cut-1))
-       IF(SVD) THEN
-          ALLOCATE(WORK(0:5*npix_cut))
-          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-          ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-          INFO = 0
-          DO i = 0, npix_cut-1
-             DO j = i, npix_cut-1
-                CNTpp(i,j) = CNTpp(j,i)
-             ENDDO
-          ENDDO
-          INFO = 0
-!    Do general SVD 
-          CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
-          IF(INFO/=0) THEN
-             write(0,*) "DGESVD info=", INFO
-             STOP 'Error SVD DGESVD'
-          ENDIF
-
-          trace = 0.0d0
-          DO i = 0, mode_number
-             IF(abs(D(i)) == 0) THEN
-                WRITE(0,*) "Condition number not sufficient"
-                VT(i,:) = 0.0d0
-             ELSE
-                VT(i,:) = VT(i,:)/D(i)
-                trace=trace+0.5d0*LOG(D(i))
-             ENDIF
-          ENDDO
-          IF(mode_number<npix_cut-1) THEN
-             DO i=mode_number+1, npix_cut-1
-                VT(i,:) = 0.0d0
-             ENDDO
-          ENDIF
-!    Complete the invertion
-          CALL DGEMM('T','T',npix_cut,npix_cut,npix_cut,1.0d0,VT,npix_cut,&
-                    & U,npix_cut,0.0d0,CNTpp,npix_cut)
-          DEALLOCATE(WORK)
-          DEALLOCATE(VT)
-          DEALLOCATE(U)
-       ELSE
+!       IF(SVD) THEN
+!          ALLOCATE(WORK(0:5*npix_cut))
+!          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
+!          ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
+!          INFO = 0
+!          DO i = 0, npix_cut-1
+!             DO j = i, npix_cut-1
+!                CNTpp(i,j) = CNTpp(j,i)
+!             ENDDO
+!          ENDDO
+!          INFO = 0
+!!    Do general SVD 
+!          CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
+!          IF(INFO/=0) THEN
+!             write(0,*) "DGESVD info=", INFO
+!             STOP 'Error SVD DGESVD'
+!          ENDIF
+!
+!          trace = 0.0d0
+!          DO i = 0, mode_number
+!             IF(abs(D(i)) == 0) THEN
+!                WRITE(0,*) "Condition number not sufficient"
+!                VT(i,:) = 0.0d0
+!             ELSE
+!                VT(i,:) = VT(i,:)/D(i)
+!                trace=trace+0.5d0*LOG(D(i))
+!             ENDIF
+!          ENDDO
+!          IF(mode_number<npix_cut-1) THEN
+!             DO i=mode_number+1, npix_cut-1
+!                VT(i,:) = 0.0d0
+!             ENDDO
+!          ENDIF
+!!    Complete the invertion
+!          CALL DGEMM('T','T',npix_cut,npix_cut,npix_cut,1.0d0,VT,npix_cut,&
+!                    & U,npix_cut,0.0d0,CNTpp,npix_cut)
+!          DEALLOCATE(WORK)
+!          DEALLOCATE(VT)
+!          DEALLOCATE(U)
+!       ELSE
 !   Cholesky decomposition of CNTpp
           INFO = 0
           CALL DPOTRF( 'L', npix_cut, CNTpp, npix_cut, INFO )
@@ -249,7 +249,7 @@ MODULE Topology_Lmarg_mod
           INFO = 0
           CALL DPOTRI( 'L', npix_cut, CNTpp, npix_cut, INFO )
           IF(INFO/=0) STOP 'Error on DPOTRI'
-       ENDIF
+!       ENDIF
 
 !   Compute exponential part of -LnL
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,wmap_signal,1,0.0d0,vec,1)
@@ -258,7 +258,7 @@ MODULE Topology_Lmarg_mod
 !   trace has already been divided by 2
        LnLikelihood = 0.5d0*LnL_exp + trace
        write(0,*) 'Full noise:',ampl_in,LnLikelihood,trace,LnL_exp
-       write(0,*) 'D(mode_number+1):',D(mode_number+1)
+!       write(0,*) 'D(mode_number+1):',D(mode_number+1)
        DEALLOCATE(D)
 
 !   Analytic best amplitude and likelihood for zero noise - for information only

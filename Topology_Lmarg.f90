@@ -78,11 +78,11 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Using regularization option'
   ENDIF
 
-  IF (SVD) THEN
-     WRITE(0,*) 'Using singular value decomposition method'
-  ELSE
-     WRITE(0,*) 'Using Cholesky decomposition method'
-  ENDIF
+  !IF (SVD) THEN
+ !    WRITE(0,*) 'Using singular value decomposition method'
+ ! ELSE
+ !    WRITE(0,*) 'Using Cholesky decomposition method'
+ ! ENDIF
 !-------------------------------------------------------------------
   write(0,'(''File with CTpp - '',$)')
   read(*,'(a)') infile
@@ -135,9 +135,9 @@ PROGRAM Topology_Lmarg
      !allocate(CTpp_clm(0:lmax*(lmax+2),0:lmax*(lmax+2)))
      CALL Read_w8ring()
      CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,lmax,w8ring)
-     if (SVD) then
-        CALL MODECOUNTER()
-     endif
+!     if (SVD) then
+!        CALL MODECOUNTER()
+!     endif
 
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
@@ -147,9 +147,9 @@ PROGRAM Topology_Lmarg
         CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
      endif
   else
-     if (SVD) then
-        CALL MODECOUNTER()
-     endif
+!     if (SVD) then
+!        CALL MODECOUNTER()
+!     endif
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
   endif
   ampl_best=exp(ampl_best)
@@ -181,7 +181,7 @@ PROGRAM Topology_Lmarg
   endif
 
   !optional output of cut-sky realization from CTpp
-  Call make_fake_mode_map(ampl_best)
+!  Call make_fake_mode_map(ampl_best)
   IF (make_map) then
      CALL make_fake_map(ampl_best)
   endif
