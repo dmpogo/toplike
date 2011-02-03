@@ -8,12 +8,14 @@ In_Dir='Spherical/CTpp_smoothed'
 Map_Dir='Spherical'
 CTpp='smoothed_ctpp_Nside'${Nside}'_nsh'${nsh}'_Ok'${1}
 
-Out_File='../Output/Likelihood/Spherical/'${CTpp}'_topmarg.out'
+inifile=${2}
+
+Out_File='../Output/Likelihood/Spherical/'${CTpp}'_epsil'${3}'_topmarg.out'
 #Prints output to file not to screen
 
-./topmarg nelson.ini 2>$Out_File<< EOF
+./topmarg ${inifile} 2>$Out_File<< EOF
 ../Output/CTpp_theory/${In_Dir}/${CTpp}
-../Output/CTpp_maps/${Map_Dir}/${CTpp}
+../Output/CTpp_maps/${Map_Dir}/${CTpp}_epsil${3}
 EOF
 
 # read seed value and if noise from ini file then tail the output file so that lable it fake_map_(noise or nonoise)_seedvalue.fits
