@@ -166,6 +166,8 @@ CONTAINS
     ENDIF
     write(0,*)'Writing bintab'
 
+    write(0,*) heal_map(:,1)
+
     write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nmaps, nlheader
     CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
     !CALL output_map(heal_map(:,1),header,TRIM(ADJUSTL(fake_file)))
