@@ -6,7 +6,7 @@ MODULE Topology_Lmarg_mod
   USE nrtype
   USE Topology_types
   USE ctpp_eigen_mod
-  USE Topology_map_mod_nel
+  !USE Topology_map_mod_nel
   USE nr_minimization
   IMPLICIT NONE
 

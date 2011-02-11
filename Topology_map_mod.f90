@@ -83,7 +83,7 @@ CONTAINS
                  & 10*npix_cut,INFO)
        IF(INFO == 0) THEN
           DO i=0,npix_cut-1
-             IF (abs(evals(i)) < 0.d0) THEN
+             IF (evals(i) < 0.d0) THEN
                 WRITE(0,'(a,i7,1x,1pe12.4)') 'Warning negative eigenvalue ', i, evals(i)
                 evals(i) = 0.d0
              ENDIF
@@ -164,10 +164,8 @@ CONTAINS
        CLOSE(26,status='delete')
        WRITE(0,*) 'Overwriting existing fits file'
     ENDIF
+
     write(0,*)'Writing bintab'
-
-    write(0,*) heal_map(:,1)
-
     write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nmaps, nlheader
     CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
     !CALL output_map(heal_map(:,1),header,TRIM(ADJUSTL(fake_file)))
