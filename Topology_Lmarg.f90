@@ -20,7 +20,7 @@ PROGRAM Topology_Lmarg
  
   EXTERNAL iargc
  
-  real(DP), allocatable, dimension(:,:) :: pixels   ! For CTpp
+  real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp   ! For CTpp
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   integer :: iter
   CHARACTER(LEN=80) :: modefile
@@ -72,12 +72,18 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Not smoothing'
   ENDIF
 
+  IF (make_map_only) THEN
+     WRITE(0,*)'Making map only'
+     GO TO 990
+  ENDIF
+
   IF (epsil == 0.0) THEN
      WRITE(0,*) 'Not using regularization option'
   ELSE
      WRITE(0,*) 'Using regularization option'
   ENDIF
 
+990 CONTINUE
   !IF (SVD) THEN
  !    WRITE(0,*) 'Using singular value decomposition method'
  ! ELSE
@@ -128,6 +134,16 @@ PROGRAM Topology_Lmarg
 ! Determines the number of modes of Ctpp and keeps the number constant
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
+  IF (make_map_only) THEN 
+     allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
+     CTpp_evec_temp=CTpp_evec
+     call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
+     deallocate(CTpp_evec_temp)
+     ampl_best= 0.0d0
+     ampl_best=exp(ampl_best)
+     GO TO 991
+  ENDIF
+
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      allocate(CTpp_cplm(0:lmax*(lmax+2),0:npix_fits-1))
@@ -181,6 +197,7 @@ PROGRAM Topology_Lmarg
 
   !optional output of cut-sky realization from CTpp
 !  Call make_fake_mode_map(ampl_best)
+991 CONTINUE
   IF (make_map) then
      CALL make_fake_map(ampl_best)
   endif

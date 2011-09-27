@@ -41,7 +41,7 @@ CONTAINS
 
     !calculate Hermitean square root of correlation matrix. Spoils
 
-    mata=CTpp*exp(ampl)
+    mata=CTpp*ampl
 !    IF(SVD) THEN
 !       WRITE(0,*)"Doing SVD MAP"
 !       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))

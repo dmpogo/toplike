@@ -35,11 +35,13 @@ MODULE TOPOLOGY_TYPES
 
   LOGICAL  :: do_mask, make_map, add_noise, do_rotate, add_map_noise
   LOGICAL  :: do_smooth, find_best_angles, nice_output, First_time
+  LOGICAL  :: make_map_only
   !LOGICAL  :: do_smooth, find_best_angles, nice_output, SVD, First_time
 
   NAMELIST /toplike/  wmap_signal_file, wmap_noise_file,  wmap_mask_file, &
        nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &
-       nice_output, make_map, add_map_noise, do_smooth, iseed, epsil
+       nice_output, make_map, make_map_only, add_map_noise, do_smooth, &
+       iseed, epsil
        !iseed, SVD, epsil, mode_number
 
   
