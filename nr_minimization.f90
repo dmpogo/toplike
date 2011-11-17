@@ -404,7 +404,13 @@ CONTAINS
 		u=bx-((bx-cx)*q-(bx-ax)*r)/(2.0_sp*sign(max(abs(q-r),TINY),q-r))
 		ulim=bx+GLIMIT*(cx-bx)
 		if ((bx-u)*(u-cx) > 0.0) then
-			fu=func(u)
+        ! write(0,*)'first if' !NELSON
+         fu=func(u)
+     ! write(0,*)"u",u
+     ! write(0,*)"fu",fu
+     ! write(0,*)"fa",fa
+     ! write(0,*)"fb",fb
+     ! write(0,*)"fc",fc
 			if (fu < fc) then
 				ax=bx
 				fa=fb
@@ -417,8 +423,10 @@ CONTAINS
 				RETURN
 			end if
 			u=cx+GOLD*(cx-bx)
+     ! write(0,*)"u",u
 			fu=func(u)
 		else if ((cx-u)*(u-ulim) > 0.0) then
+        ! write(0,*)'second if' !NELSON
 			fu=func(u)
 			if (fu < fc) then
 				bx=cx
@@ -427,14 +435,24 @@ CONTAINS
 				call shft(fb,fc,fu,func(u))
 			end if
 		else if ((u-ulim)*(ulim-cx) >= 0.0) then
+     !    write(0,*)'third if' !NELSON
 			u=ulim
 			fu=func(u)
 		else
+     ! write(0,*)'fourth if' !NELSON
 			u=cx+GOLD*(cx-bx)
 			fu=func(u)
 		end if
 		call shft(ax,bx,cx,u)
 		call shft(fa,fb,fc,fu)
+     ! write(0,*)"ax",ax
+     ! write(0,*)"fa",fa
+     ! write(0,*)"bx",bx
+     ! write(0,*)"fb",fb
+     ! write(0,*)"cx",cx
+     ! write(0,*)"fc",fc
+     ! write(0,*)"u",u
+     ! write(0,*)"fu",fu
 	end do
 	CONTAINS
 !BL
@@ -478,6 +496,7 @@ CONTAINS
 		u=bx-((bx-cx)*q-(bx-ax)*r)/(2.0_dp*sign(max(abs(q-r),TINY),q-r))
 		ulim=bx+GLIMIT*(cx-bx)
 		if ((bx-u)*(u-cx) > 0.0) then
+   !      write(0,*)'first if' !NELSON
 			fu=func(u)
 			if (fu < fc) then
 				ax=bx
@@ -493,6 +512,7 @@ CONTAINS
 			u=cx+GOLD*(cx-bx)
 			fu=func(u)
 		else if ((cx-u)*(u-ulim) > 0.0) then
+    !     write(0,*)'second if' !NELSON
 			fu=func(u)
 			if (fu < fc) then
 				bx=cx
@@ -501,14 +521,24 @@ CONTAINS
 				call shft(fb,fc,fu,func(u))
 			end if
 		else if ((u-ulim)*(ulim-cx) >= 0.0) then
+    !     write(0,*)'third if' !NELSON
 			u=ulim
 			fu=func(u)
 		else
+    !     write(0,*)'fourth if' !NELSON
 			u=cx+GOLD*(cx-bx)
 			fu=func(u)
 		end if
 		call shft(ax,bx,cx,u)
 		call shft(fa,fb,fc,fu)
+    !  write(0,*)"ax",ax
+    !  write(0,*)"fa",fa
+    !  write(0,*)"bx",bx
+    !  write(0,*)"fb",fb
+    !  write(0,*)"cx",cx
+    !  write(0,*)"fc",fc
+    !  write(0,*)"u",u
+    !  write(0,*)"fu",fu
 	end do
 	CONTAINS
 !BL

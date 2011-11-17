@@ -55,7 +55,7 @@ default: topmarg
 topmarg: $(OBJ) $(NRECIPES)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES)
 
-clean:
+tidy:
 	-rm -f $(OBJ)
-tidy: clean
+clean: tidy
 	-rm -f topmarg

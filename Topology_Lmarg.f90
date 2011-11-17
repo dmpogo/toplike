@@ -14,62 +14,109 @@ PROGRAM Topology_Lmarg
   USE PIX_TOOLS
   IMPLICIT NONE
 
-  INTEGER :: iargc
-  CHARACTER(len=100) :: parfile
-  LOGICAL :: found
+  LOGICAL :: found, output_file
  
-  EXTERNAL iargc
- 
-  real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp   ! For CTpp
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
-  integer :: iter
-  CHARACTER(LEN=80) :: modefile
+  !Dreal(DP) :: amp, lnamp !NELSON LOOP
+  real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
+  CHARACTER(LEN=100) :: nice_out_file, run_out_file
 
 !  character(len=100) :: infile
+!------------------------------------------------------------------------
+!  Input Parameters for likelihood run
+!------------------------------------------------------------------------
+! Read in files (even if not being used) 
+   read(*,'(a)') nice_out_file
+   read(*,'(a)') run_out_file
 
-  IF (iargc() == 0) STOP 'Usage: topmarg <input file>'
+! Wmap data files
+   read(*,'(a)') wmap_signal_file
+   read(*,'(a)') wmap_noise_file
+! Map modification files
+   read(*,'(a)') wmap_mask_file
+   read(*,'(a)') beam_file
+! Ring Weights file
+   read(*,'(a)') w8_file
+! CTpp file
+   read(*,'(a)') infile
+! Makefake map output file
+   read(*,'(a)') fake_file
 
-! --------------------------------------------------------------------  
-! Processing configuration file
-  CALL getarg(1,parfile)
-  WRITE(0,'(a13,a)') 'Input file : ', TRIM(parfile)
-  found = .FALSE.
-  INQUIRE(file=TRIM(parfile),exist=found)
+  read(*,*) output_file
+
+! Read in parameters
+  read(*,*) nside
+  read(*,*) nsh
+  read(*,*) OmegaL
+  read(*,*) H0
+  read(*,*) Ok
+
+  read(*,*) make_map
+  read(*,*) add_map_noise
+  read(*,*) iseed
+  read(*,*) make_map_only
+  read(*,*) nice_output
+
+  read(*,*) do_rotate
+  read(*,*) alpha,beta,gamma
+  read(*,*) find_best_angles
+  read(*,*) lmax
+
+  read(*,*) epsil
+
+
+
+  INQUIRE(file=TRIM(wmap_signal_file),exist=found)
+  WRITE(0,*) 'Signal file', TRIM(wmap_signal_file)
+  IF (.NOT.found) THEN
+     STOP "No signal file"
+  ENDIF
+
+!construct later
+  INQUIRE(file=TRIM(infile),exist=found)
   IF (found) THEN
-     CALL make_namelist(parfile, 'toplike', './tmp.ini')
-     OPEN(2,file='./tmp.ini',STATUS='OLD')
-     READ(2,NML=toplike)
-     CLOSE(2,STATUS='DELETE')
+     WRITE(0,*) 'CTpp:', TRIM(infile)
   ELSE
-     WRITE(0,*) 'input file not found : ', TRIM(parfile)
-     STOP
+     STOP "No CTpp file"
   ENDIF
 
   INQUIRE(file=TRIM(wmap_mask_file),exist=found)
   IF (found) THEN
      do_mask = .TRUE.
      WRITE(0,*) 'Using a mask'
+     
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
   ENDIF
 
-  INQUIRE(file=TRIM(wmap_noise_file),exist=found)
-  IF (found) THEN
-     add_noise = .TRUE.
-     WRITE(0,*) 'Using the noise'
-  ELSE
-     add_noise = .FALSE.
-     add_map_noise = .FALSE. !Cannot add noise if no noise file
-     WRITE(0,*) 'Not using the noise'
-  ENDIF
-
   INQUIRE(file=TRIM(beam_file),exist=found)
   IF (found) THEN
      do_smooth = .TRUE.
+     WRITE(0,*) 'Smoothing map'
   ELSE
      do_smooth = .FALSE.
-     WRITE(0,*) 'Not smoothing'
+     WRITE(0,*) 'Not smoothing map'
+  ENDIF
+
+  INQUIRE(file=TRIM(wmap_noise_file),exist=found)
+  IF (found) THEN
+     add_noise = .TRUE.
+     IF (do_smooth) THEN
+        WRITE(0,*) 'Using full smoothed noise matrix'
+     ELSE
+        WRITE(0,*) 'Using only diagonal of noise matrix'
+     ENDIF
+  ELSE
+     add_noise = .FALSE.
+     add_map_noise = .FALSE. !Cannot add noise if no noise file
+     WRITE(0,*) 'Not using noise'
+  ENDIF
+
+  IF (epsil == 0.0) THEN
+     WRITE(0,*) 'Not using regularization option'
+  ELSE
+     WRITE(0,*) 'Using regularization option, epsil =', epsil
   ENDIF
 
   IF (make_map_only) THEN
@@ -77,12 +124,67 @@ PROGRAM Topology_Lmarg
      GO TO 990
   ENDIF
 
-  IF (epsil == 0.0) THEN
-     WRITE(0,*) 'Not using regularization option'
+  IF (output_file) THEN
+     WRITE(0,*) 'Using nice out file'
   ELSE
-     WRITE(0,*) 'Using regularization option'
+     WRITE(0,*) 'Not using nice out file'
   ENDIF
 
+  IF(output_file) THEN
+    OPEN(103,file=TRIM(nice_out_file),status='Unknown')
+    WRITE(103,'(1Xa,a)')'Full run file  :', TRIM(run_out_file)
+    WRITE(103,'(1Xa,a)') 'CTpp file:', TRIM(infile)
+    WRITE(103,'(1Xa,a)') 'Signal file   :', TRIM(wmap_signal_file)
+
+    WRITE(103,'(1Xa,I4)')'Nside  :', nside
+    WRITE(103,'(1Xa,I4)')'nsh    :', nsh
+    WRITE(103,'(1Xa,F9.4)')'OmegaL :', OmegaL
+    WRITE(103,'(1Xa,F9.4)')'H0     :', H0
+
+  
+    IF (do_mask) THEN
+       WRITE(103,'(1Xa)') 'Using a mask'
+    ELSE
+       WRITE(103,'(1Xa)') 'Not using a mask'
+    ENDIF
+
+    IF (do_smooth) THEN
+       WRITE(103,'(1Xa)') 'Smoothing'
+    ELSE
+       WRITE(103,'(1Xa)') 'Not smoothing'
+    ENDIF
+  
+    IF (add_noise) THEN
+      IF (do_smooth) THEN
+         WRITE(103,'(1Xa)') 'Using full noise matrix'
+      ELSE
+         WRITE(103,'(1Xa)') 'Using only diagonal of noise matrix'
+      ENDIF
+    ELSE
+       WRITE(103,'(1Xa)') 'Not using noise'
+    ENDIF
+   
+    IF (epsil == 0.0) THEN
+       WRITE(103,'(1Xa)') 'Not using regularization option'
+    ELSE
+       WRITE(103,'(1Xa,E9.2E1)') 'Using regularization option, epsil =', epsil
+    ENDIF
+
+    IF(do_rotate) THEN
+       WRITE(103,'(1Xa,1XL1)')'do_rotate :', do_rotate
+       IF(find_best_angles) THEN
+          WRITE(103,'(1Xa,1XL1)')'find_best_angles :', find_best_angles
+       ELSE
+          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',alpha,beta,gamma
+       ENDIF
+       WRITE(103,'(1Xa,I4)')'lmax :', lmax
+    ENDIF
+    IF(make_map) THEN
+       WRITE(103,'(1Xa,1Xa)')'Making map    :', TRIM(fake_file)
+       WRITE(103,'(1Xa,1XL1)')'add_map_noise :', add_map_noise
+       WRITE(103,'(1Xa,1XL1)')'smooth_map    :', do_smooth
+    ENDIF
+  ENDIF
 990 CONTINUE
   !IF (SVD) THEN
  !    WRITE(0,*) 'Using singular value decomposition method'
@@ -90,8 +192,6 @@ PROGRAM Topology_Lmarg
  !    WRITE(0,*) 'Using Cholesky decomposition method'
  ! ENDIF
 !-------------------------------------------------------------------
-  write(0,'(''File with CTpp - '',$)')
-  read(*,'(a)') infile
   open(102,file=TRIM(infile),status='old',form='unformatted')
   read(102) npix_fits
   write(0,*)'npix=',npix_fits
@@ -106,9 +206,6 @@ PROGRAM Topology_Lmarg
   close(102)
   deallocate(pixels)
 !-------------------------------------------------------------------
-  write(0,'(''Map Output (make fake map)- '',$)')
-  read(*,'(a)') fake_file
-!-------------------------------------------------------------------
 
   nmaps     = 1
 
@@ -116,6 +213,7 @@ PROGRAM Topology_Lmarg
 
 
   write(0,*)'Read the data in'
+  !GOTO 991
 !-------------------------------------------------------------------
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
@@ -139,26 +237,39 @@ PROGRAM Topology_Lmarg
      CTpp_evec_temp=CTpp_evec
      call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
      deallocate(CTpp_evec_temp)
-     ampl_best= 0.0d0
-     ampl_best=exp(ampl_best)
+     ampl_best= 1.0d0
      GO TO 991
   ENDIF
 
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      allocate(CTpp_cplm(0:lmax*(lmax+2),0:npix_fits-1))
-     !allocate(CTpp_clm(0:lmax*(lmax+2),0:lmax*(lmax+2)))
      CALL Read_w8ring()
      CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,lmax,w8ring)
 !     if (SVD) then
 !        CALL MODECOUNTER()
 !     endif
+  !NELSON LOOP
+     ! ang(:)=0.0d0
+     ! allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
+     ! call rotate_ctpp(CTpp_evec_temp,CTpp_cplm,nside,lmax,ang(1),ang(2),ang(3),.TRUE.)
+     !call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
+     !deallocate(CTpp_evec_temp)
+     !OPEN(666,file="lnampl.data",status='NEW')
+     !WRITE(0,*)"entering nelson loop"
+     !amp=-10.0d0
+     !do
+     !  lnamp=LnLikelihood(amp)
+     !  write(666,*)amp,lnamp
+     !  amp=amp+0.1
+     !enddo
+     !CLOSE(666)
+     !STOP
+  !END NELSON LOOP
 
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
      else
-        write(0,'(''alpha,beta,gamma - '',$)')
-        read(*,*) alpha,beta,gamma
         CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
      endif
   else
@@ -178,7 +289,7 @@ PROGRAM Topology_Lmarg
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)
  
-  write(0,*) ampl_curv
+!  write(0,*) ampl_curv
 
   if (nice_output) then
      WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
@@ -194,12 +305,24 @@ PROGRAM Topology_Lmarg
                  ampl_best,ampl_var,ampl_curv,                        &
                  alpha,beta,gamma
   endif
+  if (output_file) then
 
-  !optional output of cut-sky realization from CTpp
+     WRITE(103,'(1Xa,I)') 'npix_cut      : ', npix_cut
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)
+     WRITE(103,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
+     WRITE(103,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
+     WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
+  endif
+
+! Optional output of cut-sky realization from CTpp
 !  Call make_fake_mode_map(ampl_best)
+
 991 CONTINUE
   IF (make_map) then
      CALL make_fake_map(ampl_best)
   endif
+  close(103)
 
 END PROGRAM Topology_Lmarg

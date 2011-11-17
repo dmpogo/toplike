@@ -120,7 +120,8 @@ MODULE Topology_Lmarg_mod
        allocate(CTpp_evec_rotated(0:npix_fits-1,0:npix_fits-1))
        call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,lmax,ang(1),ang(2),ang(3),.TRUE.)
 !       CTpp_evec_rotated=Ctpp_evec
-       write(0,'(a,$)')'I have rotated '
+       write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
+       !NELSON write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
   
 ! From rotated CTpp_evec_rotated and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec_rotated is corrupted on output
@@ -149,13 +150,14 @@ MODULE Topology_Lmarg_mod
      real(DP)             :: ax,bx,cx,fa,fb,fc,relerr
 
        ax=ampl_best       !Input value of ampl_best is used as initial guess
-       bx=ax-0.1d0
+       bx=ax-2.0d0
+       write(0,*)'Start bracketing Min'
        CALL mnbrak(ax,bx,cx,fa,fb,fc,LnLikelihood)
        write(0,*)'Bracketing:',bx,ax,cx,fb,fa,fc
 
        relerr=abs(err/bx)
        LnL_bestampl=brent(fb,ax,bx,cx,LnLikelihood,relerr,ampl_best)
-
+       write(0,*) 'Found Min', ampl_best
        return
      END FUNCTION LnL_bestampl
 
@@ -171,8 +173,10 @@ MODULE Topology_Lmarg_mod
      REAL(DP), DIMENSION(npix_cut) :: vec
      REAL(DP) :: LnLikelihood
      REAL(DP) :: trace, LnL_exp, ampl_0noisebest, LnL_0noisebest, DDOT
-     REAL(DP), allocatable, dimension(:) :: eigen,WORK,D
-     REAL(DP), allocatable, dimension(:,:) :: U,VT
+     REAL(DP), allocatable, dimension(:) :: eigen,WORK
+     
+!     REAL(DP), allocatable, dimension(:) :: D
+!     REAL(DP), allocatable, dimension(:,:) :: U,VT
 
 !   scale CTpp and add noise.
 !   Caution - only 'L' triangualr part in wmap_npp and thus CNTpp is valid
@@ -186,7 +190,7 @@ MODULE Topology_Lmarg_mod
           CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
        ENDDO
 
-       ALLOCATE(D(0:npix_cut-1))
+!       ALLOCATE(D(0:npix_cut-1))
 !       IF(SVD) THEN
 !          ALLOCATE(WORK(0:5*npix_cut))
 !          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
@@ -227,12 +231,22 @@ MODULE Topology_Lmarg_mod
 !          DEALLOCATE(VT)
 !          DEALLOCATE(U)
 !       ELSE
+
 !   Cholesky decomposition of CNTpp
           INFO = 0
           CALL DPOTRF( 'L', npix_cut, CNTpp, npix_cut, INFO )
           IF (INFO/=0) THEN
              WRITE(0,'(a,i0)') 'NBad matrix ',INFO
+             WRITE(0,*) "ampl_in", ampl_in
              allocate(eigen(npix_cut),WORK(3*npix_cut))
+         ! Resets the corrupted CNTpp matrix to get the real eigen values
+             CNTpp=CTpp*exp(ampl_in)
+             IF (add_noise.and.do_smooth) THEN
+                CNTpp=CNTpp+wmap_npp
+             ENDIF
+             DO i = 0, npix_cut-1
+                CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
+             ENDDO
              call DSYEV('V', 'L',npix_cut,CNTpp,npix_cut,eigen,WORK,3*npix_cut,INFO)
              write(0,*) eigen
              LnLikelihood = Top_bad_value
@@ -259,7 +273,7 @@ MODULE Topology_Lmarg_mod
        LnLikelihood = 0.5d0*LnL_exp + trace
        write(0,*) 'Full noise:',ampl_in,LnLikelihood,trace,LnL_exp
 !       write(0,*) 'D(mode_number+1):',D(mode_number+1)
-       DEALLOCATE(D)
+!       DEALLOCATE(D)
 
 !   Analytic best amplitude and likelihood for zero noise - for information only
 !       ampl_0noisebest= LnL_exp/npix_cut

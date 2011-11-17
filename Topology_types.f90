@@ -28,9 +28,9 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(len=100) :: infile
   CHARACTER(len=100) :: fake_file
 
-  REAL(DP) :: epsil
+  REAL(DP) :: epsil, Ok, OmegaL, H0
   !REAL(DP) :: epsil, condition_num
-  INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed
+  INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
   !INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, mode_number
 
   LOGICAL  :: do_mask, make_map, add_noise, do_rotate, add_map_noise
@@ -38,10 +38,10 @@ MODULE TOPOLOGY_TYPES
   LOGICAL  :: make_map_only
   !LOGICAL  :: do_smooth, find_best_angles, nice_output, SVD, First_time
 
-  NAMELIST /toplike/  wmap_signal_file, wmap_noise_file,  wmap_mask_file, &
-       nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &
-       nice_output, make_map, make_map_only, add_map_noise, do_smooth, &
-       iseed, epsil
+  !NAMELIST /toplike/  wmap_signal_file, wmap_noise_file,  wmap_mask_file, &
+  !     nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &
+  !     nice_output, make_map, make_map_only, add_map_noise, do_smooth, &
+  !     iseed, epsil
        !iseed, SVD, epsil, mode_number
 
   
