@@ -44,11 +44,11 @@ CONTAINS
       return
    end subroutine RECONSTRUCT_FROM_EIGENVALUES
 
-   subroutine NORMALIZE_EIGENVALUES()  ! Normalizes CTpp \sum(eigenvalues)=4 Pi
+   subroutine NORMALIZE_EIGENVALUES(eval)  ! Normalizes CTpp \sum(eigenvalues)=4 Pi
    real(DP) :: norm
-
-      norm = 16.0d0*atan(1.0d0)/SUM(CTpp_eval)
-      CTpp_eval = CTpp_eval*norm
+   real(DP), DIMENSION(:) :: eval
+      norm = 16.0d0*atan(1.0d0)/SUM(eval)
+      eval = eval*norm
 
       return
    end subroutine NORMALIZE_EIGENVALUES

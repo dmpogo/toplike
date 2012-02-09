@@ -2,7 +2,8 @@
 ##########################################################################
 #-------------------Ini values-------------------------------------------#
 ##########################################################################
-signal_file='../Data/WMAP/coadd_map_8.2deg_16.fits'
+signal_file='../Data/WMAP/coadd_cleanimap_16.fits'
+#signal_file='../Data/WMAP/coadd_map_8.2deg_16.fits'
 ring_weight_file='~/Packages/Healpix_2.15a/data/weight_ring_n00016.fits'
 
 space='Spherical'
@@ -41,15 +42,14 @@ nice_output='.TRUE.'
 
 #Use nice out put file
 output_file='.TRUE.'
-nice_out_file='../Output/Likelihood/'${space}'/Results/topmarge_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'.out'
-
+nice_out_file='../Output/Likelihood/'${space}'/Results/topmarge_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 ##########################################################################
 #--------------------Running script--------------------------------------#
 ##########################################################################
 #Prints output to file not to screen
 #Constructs file names from parameters given
 if [ "$do_smooth" == ".TRUE."  ]; then
-run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'.out'
+run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 beam_file='../Output/CTpp_theory/'${space}'/CTpp_beams/beam_array_gaussian'${G_fwhm}
 CTpp='../Output/CTpp_theory/'${space}'/CTpp_smoothed/ctpp_smoothed'${G_fwhm}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
 if [ "$add_map_noise" == ".TRUE." ]; then
@@ -80,7 +80,7 @@ echo "Done smoothing CTpp"
 fi
 
 else
-run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_nside'${nside}'_Ok'${1}'.out'
+run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 beam_file=''
 CTpp='../Output/CTpp_theory/'${space}'/CTpp/ctpp_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
 if [ "$add_map_noise" == ".TRUE." ]; then
@@ -158,6 +158,10 @@ ${lmax}
 ${epsil}
 EOF
 fi
+#epsilfile="epsil_ok"${Ok}".data"
+#eigenfile="epsil_ok"${Ok}".eigen"
+#mv epsilplot.data ${epsilfile}
+#mv epsil.eigen ${eigenfile}
 echo 'DONE'
 
 

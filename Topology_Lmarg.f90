@@ -213,7 +213,7 @@ PROGRAM Topology_Lmarg
 
 
   write(0,*)'Read the data in'
-  !GOTO 991
+  !GOTO 991 ! Go straight to make map
 !-------------------------------------------------------------------
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
@@ -227,7 +227,7 @@ PROGRAM Topology_Lmarg
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES()
+  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 ! Determines the number of modes of Ctpp and keeps the number constant
 !-------------------------------------------------------------------

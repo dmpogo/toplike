@@ -120,8 +120,10 @@ CONTAINS
     !Uncomment to print real map with cut
 !696 CONTINUE
 !    ALLOCATE(map_cut2(0:npix_cut-1))
-!    ALLOCATE(heal_map(0:npix_fits-1,1))
-!    map_cut2=wmap_signal 
+ !   ALLOCATE(heal_map(0:npix_fits-1,1))
+ !   map_cut2=wmap_signal 
+    !map_cut2=0.0d0 
+    !map_cut2(600)=wmap_noise(600)
     heal_map(:,1) = 0.d0
     DO i=0,npix_cut-1
        CALL vec2pix_ring(nside, DBLE(wmap_qhat(:,i)), iring)
@@ -158,6 +160,7 @@ CONTAINS
     CALL add_card(header,'COMMENT','GRAIN=1 : 1 pixel index -> 1 pixel data                     (EXPLICIT)')
     CALL add_card(header,'COMMENT','GRAIN>1 : 1 pixel index -> data of GRAIN consecutive pixels (EXPLICIT)')
     CALL add_card(header) ! blank line
+!    fake_file='./fake.fits'
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
        OPEN(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
@@ -263,14 +266,14 @@ CONTAINS
     ALLOCATE(wmap_npp_temp(0:npix_fits-1,0:npix_fits-1))
     ALLOCATE(wmap_npp(0:npix_cut-1,0:npix_cut-1))
 !Smooth signal add a check or fix so it won't double smooth (works!!!!)
-    !IF (do_smooth) THEN
-    !   ALLOCATE(signal(0:npix_fits-1))
-    !   signal(:) = map(:,1)
-    !   CALL DGEMM('N','N',npix_fits,1,npix_fits,1.0d0,map_beam,npix_fits,signal,npix_fits,0,map_signal,npix_fits)
-    !   DEALLOCATE(signal)
-    !ELSE
+    IF (do_smooth) THEN
+       ALLOCATE(signal(0:npix_fits-1))
+       signal(:) = map(:,1)
+       CALL DGEMM('N','N',npix_fits,1,npix_fits,1.0d0,map_beam,npix_fits,signal,npix_fits,0,map_signal,npix_fits)
+       DEALLOCATE(signal)
+    ELSE
        map_signal(:) = map(:,1)
-    !ENDIF
+    ENDIF
 
 !Smooth noise
     IF (add_noise.and.do_smooth) THEN
