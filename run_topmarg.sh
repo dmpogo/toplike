@@ -21,18 +21,23 @@ lmax=40
 
 mask_file='../Data/WMAP/kp0_8.2deg_thr0.5_16.fits'
 #mask_file=''
-#If do_smooth and noise_file add noise correlation matrix to CTpp
-#If noise_file and not do_smooth only diagonal of noise is added to CTPP
-noise_file='../Data/WMAP/coadd_noise_8.2deg_16.fits'
-#added to the diagonal of CTpp
-epsil='0.0d0'
 
+#
+# If do_smooth=TRUE  and noise_file is set 
+# we smooth noise correlation before adding matrix to CTpp
+# If do_smooth=FALSE and noise_file is set 
+# the noise correlation matrix is added to CTpp "as is" 
+#                                   (presumably should be diagonal )
 do_smooth='.TRUE.'
 G_fwhm=492.0
+noise_file='../Data/WMAP/coadd_noise_8.2deg_16.fits'
+#epsil is always added to the diagonal of CTpp. May be used for regularization
+epsil='0.0d0'
+
 #make map visualization from CTpp
-make_map='.FALSE.'
+make_map='.TRUE.'
 #makes map only does not find max liklihood
-make_map_only='.FALSE.'
+make_map_only='.TRUE.'
 add_map_noise='.FALSE.'
 
 #if set to 0 will use system clock
@@ -49,7 +54,7 @@ nice_out_file='../Output/Likelihood/'${space}'/Results/topmarge_smooth'${G_fwhm}
 #Prints output to file not to screen
 #Constructs file names from parameters given
 if [ "$do_smooth" == ".TRUE."  ]; then
-run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
+   run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 beam_file='../Output/CTpp_theory/'${space}'/CTpp_beams/beam_array_gaussian'${G_fwhm}
 CTpp='../Output/CTpp_theory/'${space}'/CTpp_smoothed/ctpp_smoothed'${G_fwhm}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
 if [ "$add_map_noise" == ".TRUE." ]; then

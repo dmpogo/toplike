@@ -9,6 +9,8 @@ MODULE ctpp_eigen_mod
 CONTAINS
 
    subroutine DECOMPOSE_AND_SAVE_EIGENVALUES()
+   ! Full sky CTpp stored in CTpp_evec(npix_fits,npix_fits) -> 
+   !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
    integer :: ival,INFO
    real(DP), allocatable, dimension(:) :: WORK
@@ -24,6 +26,9 @@ CONTAINS
 
 
    subroutine RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_work)
+   ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec_work -> 
+   !        cut sky CTpp(npix_cut,npix_cut)
+
    real(DP), intent(inout), dimension(0:npix_fits-1,0:npix_fits-1) :: CTpp_evec_work
 
    integer :: ipix,jpix,ne,ic,jc

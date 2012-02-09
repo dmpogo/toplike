@@ -206,6 +206,11 @@ PROGRAM Topology_Lmarg
   close(102)
   deallocate(pixels)
 !-------------------------------------------------------------------
+! Read data:  signal map wmap_signal, noise  wmap_npp and mask
+!             
+! signal and noise are also smoothed which must coincide with smoothing
+! of CTpp that is read in.  Calling shell script should check for that.
+!
 
   nmaps     = 1
 
