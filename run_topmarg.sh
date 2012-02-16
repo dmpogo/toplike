@@ -38,7 +38,7 @@ epsil='0.0d0'
 make_map='.TRUE.'
 #makes map only does not find max liklihood
 make_map_only='.TRUE.'
-add_map_noise='.FALSE.'
+add_map_noise='.TRUE.'
 
 #if set to 0 will use system clock
 iseed=1
@@ -54,7 +54,7 @@ nice_out_file='../Output/Likelihood/'${space}'/Results/topmarge_smooth'${G_fwhm}
 #Prints output to file not to screen
 #Constructs file names from parameters given
 if [ "$do_smooth" == ".TRUE."  ]; then
-   run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
+run_out_file='../Output/Likelihood/'${space}'/Complete_run/topmarge_fullrun_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 beam_file='../Output/CTpp_theory/'${space}'/CTpp_beams/beam_array_gaussian'${G_fwhm}
 CTpp='../Output/CTpp_theory/'${space}'/CTpp_smoothed/ctpp_smoothed'${G_fwhm}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
 if [ "$add_map_noise" == ".TRUE." ]; then
@@ -97,7 +97,7 @@ fi
 
 #If statement to screen
 echo 'Starting Ok'${1}
-if [ "$2" == screen ]; then
+if [ "$2" == -screen ]; then
 ./topmarg << EOF
 ${nice_out_file}
 Printed to screen
