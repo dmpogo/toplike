@@ -40,7 +40,7 @@ MODULE Topology_Lmarg_mod
 
         write(0,*)'#####################################################'
         do i=1,4
-           write(0,'(a9,3(f7.5,1x),a9,f10.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
+           write(0,'(a9,3(f7.5,1x),a9,f12.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
         enddo
         write(0,*)'#####################################################'
 
@@ -132,7 +132,7 @@ MODULE Topology_Lmarg_mod
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
        LnLrotated_at_best_amplitude=LnL_bestampl(ampl)
-       write(0,'(a5,f8.4,a9,3(f7.5,1x),a9,f10.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
+       write(0,'(a5,f8.4,a9,3(f7.5,1x),a9,f12.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
        return
      END FUNCTION LnLrotated_at_best_amplitude
   
