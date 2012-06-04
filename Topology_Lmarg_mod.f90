@@ -54,6 +54,7 @@ MODULE Topology_Lmarg_mod
 
         LnL_max=LnLrotated_at_best_amplitude(p(1,:))
         ampl_best=ampl
+
         return  
      END SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE
 
@@ -181,6 +182,7 @@ MODULE Topology_Lmarg_mod
 !   scale CTpp and add noise.
 !   Caution - only 'L' triangualr part in wmap_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
+!       CNTpp=CNTpp+wmap_npp
 
        IF (add_noise.and.do_smooth) THEN
           CNTpp=CNTpp+wmap_npp
