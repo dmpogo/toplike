@@ -17,7 +17,7 @@ CONTAINS
 
     REAL(DP), DIMENSION(0:npix_cut*10-1) :: ework
     REAL(DP), DIMENSION(0:npix_cut-1)    :: evals
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: mata,matb
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: matb
     REAL,     DIMENSION(:,:), ALLOCATABLE :: heal_map
     REAL(DP), DIMENSION(:), ALLOCATABLE :: map_cut, map_cut2
     INTEGER :: INFO,i,iring,j
@@ -36,11 +36,16 @@ CONTAINS
        IF (MOD(iseed, 2) .EQ. 0) iseed = iseed + 1
     ENDIF
 
-    ALLOCATE(mata(0:npix_cut-1,0:npix_cut-1))
     ALLOCATE(matb(0:npix_cut-1,0:npix_cut-1))
 
     !calculate Hermitean square root of correlation matrix. Spoils
-    mata=CTpp*ampl
+    CNTpp=CTpp*ampl
+    IF(add_noise.and.do_smooth) THEN
+      CNTpp=CNTpp+wmap_npp
+    ENDIF
+    DO i = 0, npix_cut-1
+      CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
+    ENDDO
 !    IF(SVD) THEN
 !       WRITE(0,*)"Doing SVD MAP"
 !       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
@@ -49,11 +54,11 @@ CONTAINS
 !       INFO = 0
 !       DO i = 0, npix_cut-1
 !          DO j = i, npix_cut-1
-!             mata(i,j) = mata(j,i)
+!             CNTpp(i,j) = CNTpp(j,i)
 !          ENDDO
 !       ENDDO
 !!    Do general SVD 
-!       CALL DGESVD('A','A',npix_cut,npix_cut,mata,npix_cut,evals,&
+!       CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,evals,&
 !                  & U,npix_cut,VT,npix_cut,WORKNEL,5*npix_cut,INFO)
 !       IF(INFO/=0) THEN
 !          write(0,*) "DGESVD info=", INFO
@@ -78,7 +83,7 @@ CONTAINS
 !       DEALLOCATE(VT)
 !       DEALLOCATE(WORKNEL)
 !    ELSE !Cholesky methode
-       CALL dsyev('V', 'L', npix_cut, mata, npix_cut, evals, ework, &
+       CALL dsyev('V', 'L', npix_cut, CNTpp, npix_cut, evals, ework, &
                  & 10*npix_cut,INFO)
        IF(INFO == 0) THEN
           DO i=0,npix_cut-1
@@ -86,18 +91,16 @@ CONTAINS
                 WRITE(0,'(a,i7,1x,1pe12.4)') 'Warning negative eigenvalue ', i, evals(i)
                 evals(i) = 0.d0
              ENDIF
-             mata(:,i) = mata(:,i) * evals(i)**0.25d0
+             CNTpp(:,i) = CNTpp(:,i) * evals(i)**0.25d0
           ENDDO
        ELSE
           WRITE(0,*)'INFO=',INFO
           STOP 'Failed on DSYEV'
        ENDIF
 
-       CALL dsyrk('L', 'N', npix_cut, npix_cut, 1.0d0, mata, npix_cut,&
+       CALL dsyrk('L', 'N', npix_cut, npix_cut, 1.0d0, CNTpp, npix_cut,&
             &0.0d0, matb, npix_cut)
 !    ENDIF
-
-    DEALLOCATE(mata)
 
     ALLOCATE(map_cut(0:npix_cut-1))
     ALLOCATE(map_cut2(0:npix_cut-1))
@@ -110,12 +113,6 @@ CONTAINS
 !   Generate random realization from purly gaussian map
     
     CALL dsymv('L',npix_cut,1.0d0,matb,npix_cut,map_cut,1,0.0d0,map_cut2,1)
-
-    IF(add_map_noise) THEN !If add_noise=.FALSE => add_map_noise=.FALSE.
-       DO i = 0, npix_cut - 1
-          map_cut2(i) = map_cut2(i) + DBLE(randgauss_boxmuller(iseed)*SQRT(wmap_noise(i)))
-       ENDDO
-    ENDIF
     
     !Uncomment to print real map with cut
 !696 CONTINUE
