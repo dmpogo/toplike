@@ -35,10 +35,11 @@ FITSOUT	=
 # For old standalone MKL
 # LAPACK  =  -I$(MKLROOT)/include -L$(MKLROOT)/lib/$(MKLARCH) -lmkl_lapack -lmkl_$(MKLARCH)
 
-LAPACK  = -I$(MKLROOT)/include $(MKLPATH)/libmkl_solver_lp64.a -Wl, --start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl, --end-group  -lmkl_lapack
+#LAPACK  = -I$(MKLROOT)/include $(MKLPATH)/libmkl_solver_lp64.a -Wl, --start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl, --end-group  -lmkl_lapack
+LAPACK = -I$(MKLROOT)/include -mkl
 
 
-LIB 	= -Vaxlib $(LAPACK) -lguide -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio  -lfftw3 
+LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio  -lfftw3 
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 

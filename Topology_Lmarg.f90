@@ -201,8 +201,8 @@ PROGRAM Topology_Lmarg
   endif
   allocate(pixels(3,npix_fits))
   allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
-  read(102)pixels
   read(102)CTpp_evec
+  read(102)pixels
   close(102)
   deallocate(pixels)
 !-------------------------------------------------------------------
