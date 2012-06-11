@@ -65,7 +65,6 @@ PROGRAM Topology_Lmarg
   read(*,*) epsil
 
 
-
   INQUIRE(file=TRIM(wmap_signal_file),exist=found)
   WRITE(0,*) 'Signal file', TRIM(wmap_signal_file)
   IF (.NOT.found) THEN
@@ -84,7 +83,6 @@ PROGRAM Topology_Lmarg
   IF (found) THEN
      do_mask = .TRUE.
      WRITE(0,*) 'Using a mask'
-     
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'

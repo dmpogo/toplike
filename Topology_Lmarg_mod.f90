@@ -40,7 +40,7 @@ MODULE Topology_Lmarg_mod
 
         write(0,*)'#####################################################'
         do i=1,4
-           write(0,'(a9,3(f7.5,1x),a9,f10.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
+           write(0,'(a9,3(f7.5,1x),a9,f12.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
         enddo
         write(0,*)'#####################################################'
 
@@ -54,6 +54,7 @@ MODULE Topology_Lmarg_mod
 
         LnL_max=LnLrotated_at_best_amplitude(p(1,:))
         ampl_best=ampl
+
         return  
      END SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE
 
@@ -132,7 +133,7 @@ MODULE Topology_Lmarg_mod
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
        LnLrotated_at_best_amplitude=LnL_bestampl(ampl)
-       write(0,'(a5,f8.4,a9,3(f7.5,1x),a9,f10.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
+       write(0,'(a5,f8.4,a9,3(f7.5,1x),a9,f12.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
        return
      END FUNCTION LnLrotated_at_best_amplitude
   
@@ -181,6 +182,7 @@ MODULE Topology_Lmarg_mod
 !   scale CTpp and add noise.
 !   Caution - only 'L' triangualr part in wmap_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
+!       CNTpp=CNTpp+wmap_npp
 
        IF (add_noise.and.do_smooth) THEN
           CNTpp=CNTpp+wmap_npp
