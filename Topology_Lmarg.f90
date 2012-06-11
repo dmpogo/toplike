@@ -19,7 +19,7 @@ PROGRAM Topology_Lmarg
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
-  CHARACTER(LEN=100) :: nice_out_file, run_out_file
+  CHARACTER(LEN=120) :: nice_out_file, run_out_file
 
 !  character(len=100) :: infile
 !------------------------------------------------------------------------
@@ -65,7 +65,6 @@ PROGRAM Topology_Lmarg
   read(*,*) epsil
 
 
-
   INQUIRE(file=TRIM(wmap_signal_file),exist=found)
   WRITE(0,*) 'Signal file', TRIM(wmap_signal_file)
   IF (.NOT.found) THEN
@@ -84,7 +83,6 @@ PROGRAM Topology_Lmarg
   IF (found) THEN
      do_mask = .TRUE.
      WRITE(0,*) 'Using a mask'
-     
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'

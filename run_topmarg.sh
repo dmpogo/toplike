@@ -35,11 +35,11 @@ do_smooth='.TRUE.'
 G_fwhm=492.0
 noise_file='../Data/WMAP/coadd_noise_8.2deg_16.fits'
 #epsil is always added to the diagonal of CTpp. May be used for regularization
-epsil='0.0d0'
+epsil='1.0d-7'
 
 #make map visualization from CTpp
 make_map='.FALSE.'
-#makes map only does not find max likelihood
+#makes map only does not find max liklihood
 make_map_only='.FALSE.'
 add_map_noise='.FALSE.'
 

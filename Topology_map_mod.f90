@@ -31,6 +31,7 @@ CONTAINS
     REAL(DP), ALLOCATABLE, DIMENSION(:) :: WORKNEL,D
     REAL(DP), ALLOCATABLE, DIMENSION(:,:) :: U,VT
 !    GOTO 696
+
     IF(iseed == 0) THEN
        CALL SYSTEM_CLOCK(count = iseed)
        IF (MOD(iseed, 2) .EQ. 0) iseed = iseed + 1
@@ -121,6 +122,7 @@ CONTAINS
  !   map_cut2=wmap_signal 
     !map_cut2=0.0d0 
     !map_cut2(600)=wmap_noise(600)
+
     heal_map(:,1) = 0.d0
     DO i=0,npix_cut-1
        CALL vec2pix_ring(nside, DBLE(wmap_qhat(:,i)), iring)
