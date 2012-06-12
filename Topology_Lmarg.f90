@@ -30,10 +30,10 @@ PROGRAM Topology_Lmarg
    read(*,'(a)') run_out_file
 
 ! Wmap data files
-   read(*,'(a)') wmap_signal_file
-   read(*,'(a)') wmap_noise_file
+   read(*,'(a)') map_signal_file
+   read(*,'(a)') map_noise_file
 ! Map modification files
-   read(*,'(a)') wmap_mask_file
+   read(*,'(a)') map_mask_file
    read(*,'(a)') beam_file
 ! Ring Weights file
    read(*,'(a)') w8_file
@@ -65,8 +65,8 @@ PROGRAM Topology_Lmarg
   read(*,*) epsil
 
 
-  INQUIRE(file=TRIM(wmap_signal_file),exist=found)
-  WRITE(0,*) 'Signal file', TRIM(wmap_signal_file)
+  INQUIRE(file=TRIM(map_signal_file),exist=found)
+  WRITE(0,*) 'Signal file', TRIM(map_signal_file)
   IF (.NOT.found) THEN
      STOP "No signal file"
   ENDIF
@@ -79,7 +79,7 @@ PROGRAM Topology_Lmarg
      STOP "No CTpp file"
   ENDIF
 
-  INQUIRE(file=TRIM(wmap_mask_file),exist=found)
+  INQUIRE(file=TRIM(map_mask_file),exist=found)
   IF (found) THEN
      do_mask = .TRUE.
      WRITE(0,*) 'Using a mask'
@@ -97,7 +97,7 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Not smoothing map'
   ENDIF
 
-  INQUIRE(file=TRIM(wmap_noise_file),exist=found)
+  INQUIRE(file=TRIM(map_noise_file),exist=found)
   IF (found) THEN
      add_noise = .TRUE.
      IF (do_smooth) THEN
@@ -132,7 +132,7 @@ PROGRAM Topology_Lmarg
     OPEN(103,file=TRIM(nice_out_file),status='Unknown')
     WRITE(103,'(1Xa,a)')'Full run file  :', TRIM(run_out_file)
     WRITE(103,'(1Xa,a)') 'CTpp file:', TRIM(infile)
-    WRITE(103,'(1Xa,a)') 'Signal file   :', TRIM(wmap_signal_file)
+    WRITE(103,'(1Xa,a)') 'Signal file   :', TRIM(map_signal_file)
 
     WRITE(103,'(1Xa,I4)')'Nside  :', nside
     WRITE(103,'(1Xa,I4)')'nsh    :', nsh
@@ -204,7 +204,7 @@ PROGRAM Topology_Lmarg
   close(102)
   deallocate(pixels)
 !-------------------------------------------------------------------
-! Read data:  signal map wmap_signal, noise  wmap_npp and mask
+! Read data:  signal map map_signal, noise  map_npp and mask
 !             
 ! signal and noise are also smoothed which must coincide with smoothing
 ! of CTpp that is read in.  Calling shell script should check for that.
@@ -325,6 +325,7 @@ PROGRAM Topology_Lmarg
 991 CONTINUE
   IF (make_map) then
      CALL make_fake_map(ampl_best)
+     CALL WriteWMAP_map()
   endif
   close(103)
 

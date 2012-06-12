@@ -6,27 +6,19 @@ MODULE Topology_map_mod
   USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, ReadWmap_map, Read_w8ring
+  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map, Read_w8ring
   
 CONTAINS
 
   SUBROUTINE make_fake_map(ampl)
-    IMPLICIT NONE
-
     REAL(DP), INTENT(IN)                 ::ampl
 
-    REAL(DP), DIMENSION(0:npix_cut*10-1) :: ework
-    REAL(DP), DIMENSION(0:npix_cut-1)    :: evals
+    REAL(DP), DIMENSION(0:npix_cut*10-1)  :: ework
+    REAL(DP), DIMENSION(0:npix_cut-1)     :: evals
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: matb
-    REAL,     DIMENSION(:,:), ALLOCATABLE :: heal_map
-    REAL(DP), DIMENSION(:), ALLOCATABLE :: map_cut, map_cut2
+    REAL(DP), DIMENSION(:), ALLOCATABLE   :: map_cut
     INTEGER :: INFO,i,iring,j
 
-
-    INTEGER, PARAMETER :: nlheader = 30
-    CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
-    REAL    :: nullval
-    LOGICAL :: anynull,filefound
 
     REAL(DP), ALLOCATABLE, DIMENSION(:) :: WORKNEL,D
     REAL(DP), ALLOCATABLE, DIMENSION(:,:) :: U,VT
@@ -39,14 +31,12 @@ CONTAINS
 
     ALLOCATE(matb(0:npix_cut-1,0:npix_cut-1))
 
-    !calculate Hermitean square root of correlation matrix. Spoils
+! calculate Hermitean square root of correlation matrix. Spoils
     CNTpp=CTpp*ampl
     IF(add_noise.and.do_smooth) THEN
-      CNTpp=CNTpp+wmap_npp
+      CNTpp=CNTpp+map_npp
     ENDIF
-    DO i = 0, npix_cut-1
-      CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
-    ENDDO
+    FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
 !    IF(SVD) THEN
 !       WRITE(0,*)"Doing SVD MAP"
 !       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
@@ -83,7 +73,7 @@ CONTAINS
 !       DEALLOCATE(U)
 !       DEALLOCATE(VT)
 !       DEALLOCATE(WORKNEL)
-!    ELSE !Cholesky methode
+!    ELSE !Cholesky method
        CALL dsyev('V', 'L', npix_cut, CNTpp, npix_cut, evals, ework, &
                  & 10*npix_cut,INFO)
        IF(INFO == 0) THEN
@@ -104,34 +94,41 @@ CONTAINS
 !    ENDIF
 
     ALLOCATE(map_cut(0:npix_cut-1))
-    ALLOCATE(map_cut2(0:npix_cut-1))
-    ALLOCATE(heal_map(0:npix_fits-1,1))
     
     DO i = 0, npix_cut - 1
        map_cut(i) = DBLE(randgauss_boxmuller(iseed))
     ENDDO
 
-!   Generate random realization from purly gaussian map
+!   Generate random realization for correlated gaussian map
     
-    CALL dsymv('L',npix_cut,1.0d0,matb,npix_cut,map_cut,1,0.0d0,map_cut2,1)
+    CALL dsymv('L',npix_cut,1.0d0,matb,npix_cut,map_cut,1,0.0d0,map_signal,1)
     
-    !Uncomment to print real map with cut
+!   Uncomment to print real map with cut
 !696 CONTINUE
-!    ALLOCATE(map_cut2(0:npix_cut-1))
- !   ALLOCATE(heal_map(0:npix_fits-1,1))
- !   map_cut2=wmap_signal 
-    !map_cut2=0.0d0 
-    !map_cut2(600)=wmap_noise(600)
+!   ALLOCATE(map_cut2(0:npix_cut-1))
+!   ALLOCATE(heal_map(0:npix_fits-1,1))
+!   map_cut2=wmap_signal 
+!   map_cut2=0.0d0 
+!   map_cut2(600)=wmap_noise(600)
 
-    heal_map(:,1) = 0.d0
-    DO i=0,npix_cut-1
-       CALL vec2pix_ring(nside, DBLE(wmap_qhat(:,i)), iring)
-       heal_map(iring,1) = map_cut2(i)
-    ENDDO
+    DEALLOCATE(map_cut,matb)
 
+    return
+  END SUBROUTINE make_fake_map
+
+  SUBROUTINE WriteWMAP_map()
     !-----------------------------------------------------------------------
     !                        generates header
     !-----------------------------------------------------------------------
+    REAL(SP), DIMENSION(:,:), ALLOCATABLE    :: heal_map
+    INTEGER, PARAMETER :: nlheader = 30
+    CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
+    REAL    :: nullval
+    LOGICAL :: anynull,filefound
+
+    ALLOCATE(heal_map(0:npix_fits-1,1))
+    heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
+
     header = ''
 
     CALL add_card(header,'COMMENT','-----------------------------------------------')
@@ -172,13 +169,13 @@ CONTAINS
     CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
     write(0,*)'Done'
 
-    DEALLOCATE(map_cut,matb,heal_map)
+    DEALLOCATE(heal_map)
 
     RETURN
-  END SUBROUTINE make_fake_map
+  END SUBROUTINE WriteWMAP_map
 
   SUBROUTINE Read_w8ring()
-    IMPLICIT NONE
+
     real(DP)    :: nullval
     logical     :: found,anynull
     
@@ -199,142 +196,95 @@ CONTAINS
 
 
   SUBROUTINE ReadWMAP_map()
-    !wmap_signal_file, wmap_noise_file, wmap_mask_file, nside
-    IMPLICIT NONE
+    !Global map_signal, map_signal_file, map_noise_file, map_mask_file, nside
     
     INTEGER :: i,j
-    DOUBLE PRECISION :: vec(0:2)
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: map_beam,wmap_npp_temp
-    REAL(DP), DIMENSION(:), ALLOCATABLE   :: signal,map_signal
-    REAL(SP), DIMENSION(:,:), ALLOCATABLE   :: map, map_noise, map_mask 
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: wmap_beam
+    REAL(DP), DIMENSION(:),   ALLOCATABLE   :: wmap_signal
+    REAL(SP), DIMENSION(:,:), ALLOCATABLE   :: wmap_data, wmap_noise, wmap_mask 
     
-    !maps must be in ring format
-    ! Allocate arrays
-    ALLOCATE(map(0:npix_fits-1,1:nmaps))
-    ALLOCATE(map_signal(0:npix_fits-1))
-    ALLOCATE(map_noise(0:npix_fits-1,1:nmaps))
-    ALLOCATE(map_mask(0:npix_fits-1,1:nmaps))
-    ALLOCATE(map_beam(0:npix_fits-1,0:npix_fits-1))
+! Allocate arrays and input necessary data. 
+! Input must be full-sky in ring format in globally accessible files
+    ALLOCATE(wmap_data(0:npix_fits-1,1:nmaps))
+    ALLOCATE(wmap_noise(0:npix_fits-1,1:nmaps))
+    ALLOCATE(wmap_mask(0:npix_fits-1,1:nmaps))
+    ALLOCATE(wmap_beam(0:npix_fits-1,0:npix_fits-1))
 
-    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(wmap_signal_file))
-    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(wmap_noise_file))
-    CALL input_map(TRIM(ADJUSTL(wmap_signal_file)),map,npix_fits,nmaps)
+    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
+    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
+    CALL input_map(TRIM(ADJUSTL(map_signal_file)),wmap_data,npix_fits,nmaps)
 
+! Assumes diagonal noise, and wmap_noise to contain hit counts
     IF(add_noise) THEN
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(wmap_noise_file))
-       CALL input_map(TRIM(ADJUSTL(wmap_noise_file)),map_noise,npix_fits,nmaps)
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
+       CALL input_map(TRIM(ADJUSTL(map_noise_file)),wmap_noise,npix_fits,nmaps)
+       WHERE( wmap_noise > 0.0 ) wmap_noise = 1./wmap_noise
     ELSE
-       map_noise(:,1) = 0.d0
+       wmap_noise(:,1) = 0.0
     ENDIF
 
     IF(do_mask) THEN
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(wmap_mask_file))
-       CALL input_map(TRIM(ADJUSTL(wmap_mask_file)),map_mask,npix_fits,nmaps)
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
+       CALL input_map(TRIM(ADJUSTL(map_mask_file)),wmap_mask,npix_fits,nmaps)
     ELSE
-       map_mask(:,1) = 1.d0
+       wmap_mask(:,1) = 1.0
     ENDIF
 
     IF(do_smooth) THEN
        WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(beam_file))
        open(100,file=TRIM(ADJUSTL(beam_file)), status='unknown', form='unformatted')
-       read(100)map_beam
+       read(100)wmap_beam
     ENDIF
-    
 
+! data is in, now process it and store in global arrays
 
-    ALLOCATE(wmap_mask(0:npix_fits-1))
+! Count unmasked pixels and store the mask
+    ALLOCATE(map_mask(0:npix_fits-1))
+    map_mask = ( wmap_mask(:,1) /= 0 ) 
+    npix_cut = count(map_mask)
 
-    npix_cut = 0
-    DO i=0,npix_fits-1
-       IF(map_mask(i,1) /=0.0) then
-         npix_cut = npix_cut + 1
-         wmap_mask(i)=.TRUE.
-       ELSE
-         wmap_mask(i)=.FALSE.
-       ENDIF
-    ENDDO
-
-    WRITE(0,'(a,i7,a,i7)') 'Found ', npix_cut, ' unmasked pixels from ', npix_fits
+    write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
-     
-    ! Allocate output arrays
-    ALLOCATE(wmap_signal(0:npix_cut-1))
-    ALLOCATE(wmap_noise(0:npix_cut-1))
-    ALLOCATE(diag_noise(0:npix_cut-1))
-    ALLOCATE(wmap_qhat(0:2,0:npix_cut-1))
-    ALLOCATE(wmap_npp_temp(0:npix_fits-1,0:npix_fits-1))
-    ALLOCATE(wmap_npp(0:npix_cut-1,0:npix_cut-1))
-!Smooth signal add a check or fix so it won't double smooth (works!!!!)
+
+!   Pack wmap_beam into (npix_cut,npix_fits) size
+    FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(wmap_beam(:,i),map_mask)
+
+!Smooth and pack the signal.
+    ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_smooth) THEN
-       ALLOCATE(signal(0:npix_fits-1))
-       signal(:) = map(:,1)
-       CALL DGEMM('N','N',npix_fits,1,npix_fits,1.0d0,map_beam,npix_fits,signal,npix_fits,0,map_signal,npix_fits)
-       DEALLOCATE(signal)
+       ALLOCATE(wmap_signal(0:npix_fits-1))
+       wmap_signal(:) = wmap_data(:,1)
+       CALL DGEMM('N','N',npix_cut,1,npix_fits,1.0d0,wmap_beam,npix_fits,wmap_signal,npix_fits,0.d0,map_signal,npix_cut)
+       DEALLOCATE(wmap_signal)
     ELSE
-       map_signal(:) = map(:,1)
+       map_signal = pack(wmap_data(:,1),map_mask)
     ENDIF
 
-!Smooth noise
+
+!Smooth noise if needed and store it
     IF (add_noise.and.do_smooth) THEN
-       DO i=0,npix_fits-1
-          map_beam(:,i)=map_beam(:,i)/sqrt(map_noise(i,1))
-       ENDDO
-    ! wmap_npp = map_beam x transpose(map_beam)
-       call DSYRK('L', 'N', npix_fits, npix_fits, 1.0d0, map_beam, npix_fits, 0.0d0, wmap_npp_temp, npix_fits)
+       ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+       ! map_npp(cut,cut) = map_beam(cut,fits) x transpose(map_beam)(fits,cut)
+       FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=wmap_beam(0:npix_cut-1,i)*sqrt(wmap_noise(i,1))
+       call DSYRK('L','N',npix_cut,npix_fits,1.0d0,wmap_beam,npix_fits,0.0d0,map_npp,npix_cut)
     ENDIF
 
-    npix_cut = 0
-    IF (add_noise) THEN
-       DO i=0,npix_fits-1
-          IF(map_mask(i,1) /= 0.0) THEN
-             IF (do_smooth) THEN
-                wmap_npp_temp(:,npix_cut) = wmap_npp_temp(:,i)
-             ENDIF
-             wmap_signal(npix_cut) = map_signal(i)
-             !the maps actually store the coadding weight factor which
-             !is 1/noise variance of each pixel
-             wmap_noise(npix_cut) = 1.d0/map_noise(i,1)
-             CALL pix2vec_ring(nside, i, vec)
-             wmap_qhat(:,npix_cut) = REAL(vec(:))
-             npix_cut = npix_cut + 1
-          ENDIF
-       ENDDO
-       IF (do_smooth) THEN
-          npix_cut = 0
-          DO i=0,npix_fits-1
-             IF (map_mask(i,1) /= 0.0) THEN
-                wmap_npp_temp(npix_cut,:) = wmap_npp_temp(i,:)
-                npix_cut = npix_cut + 1
-             ENDIF
-          ENDDO
-       ENDIF
-    ELSE
-       DO i=0,npix_fits-1
-          IF(map_mask(i,1) /=0.0) THEN
-             wmap_signal(npix_cut) = map_signal(i)
-             CALL pix2vec_ring(nside, i, vec)
-             wmap_qhat(:,npix_cut) = REAL(vec(:))
-             npix_cut = npix_cut + 1
-          ENDIF
-       ENDDO
-    ENDIF
+! diagonal needs always to be defined, although may be zero
+    ALLOCATE(diag_noise(0:npix_cut-1))
+    if ( epsil > 0.0 ) then
+        diag_noise = epsil
+    else 
+        diag_noise = 0.0d0
+    endif
 
-    IF ((do_smooth.and.add_noise).or.(epsil /= 0.0)) THEN
-       DO i=0, npix_cut-1
-          DO j=0, npix_cut-1
-             wmap_npp(i,j)=wmap_npp_temp(i,j)
-          ENDDO
-       ENDDO
+    ! If noise was smoothed, it is in map_npp, otherwise add 1/hit_counts
+    if (add_noise.and.(.not.do_smooth) ) then
+       diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
+    endif
 
-       diag_noise(:) = epsil
-    ELSE
-       diag_noise(:) = wmap_noise(:)
-    ENDIF
-
-    
     ! write(0,'(2(e10.5,1x))') (wmap_noise(i),wmap_npp(i,i),i=0,npix_cut-1)
     ! Deallocate read-in arrays
-    DEALLOCATE(map,map_noise,map_mask,map_beam,wmap_npp_temp,map_signal)
+    DEALLOCATE(wmap_data,wmap_noise,wmap_mask,wmap_beam,wmap_signal)
     RETURN
   END SUBROUTINE ReadWMAP_map
 

@@ -8,11 +8,10 @@ MODULE TOPOLOGY_TYPES
   
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
-  REAL,        DIMENSION(:,:), ALLOCATABLE   :: map, map_noise, map_mask
-  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: wmap_signal, wmap_noise, diag_noise
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: wmap_npp
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: wmap_qhat
-  LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: wmap_mask
+  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal, diag_noise
+  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
+  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_qhat
+  LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
 
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp, CNTpp
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp_evec
@@ -23,10 +22,10 @@ MODULE TOPOLOGY_TYPES
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: w8ring
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
-  CHARACTER(len=80) :: wmap_signal_file, wmap_noise_file, wmap_mask_file
-  CHARACTER(len=80) :: w8_file, beam_file
-  CHARACTER(len=100) :: infile
-  CHARACTER(len=100) :: fake_file
+  CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
+  CHARACTER(len=255)  :: w8_file, beam_file
+  CHARACTER(len=255)  :: infile
+  CHARACTER(len=255)  :: fake_file
 
   REAL(DP) :: epsil, Ok, OmegaL, H0
   !REAL(DP) :: epsil, condition_num
@@ -38,7 +37,7 @@ MODULE TOPOLOGY_TYPES
   LOGICAL  :: make_map_only
   !LOGICAL  :: do_smooth, find_best_angles, nice_output, SVD, First_time
 
-  !NAMELIST /toplike/  wmap_signal_file, wmap_noise_file,  wmap_mask_file, &
+  !NAMELIST /toplike/  map_signal_file, map_noise_file,  map_mask_file, &
   !     nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &
   !     nice_output, make_map, make_map_only, add_map_noise, do_smooth, &
   !     iseed, epsil

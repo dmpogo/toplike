@@ -180,12 +180,11 @@ MODULE Topology_Lmarg_mod
 !     REAL(DP), allocatable, dimension(:,:) :: U,VT
 
 !   scale CTpp and add noise.
-!   Caution - only 'L' triangualr part in wmap_npp and thus CNTpp is valid
+!   Caution - only 'L' triangualr part in map_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
-!       CNTpp=CNTpp+wmap_npp
 
        IF (add_noise.and.do_smooth) THEN
-          CNTpp=CNTpp+wmap_npp
+          CNTpp=CNTpp+map_npp
        ENDIF
 !   add diagonal noise. Perhaps set to 0 or set as regularizer or the noise weights of the pixle
        DO i = 0, npix_cut-1
@@ -244,7 +243,7 @@ MODULE Topology_Lmarg_mod
          ! Resets the corrupted CNTpp matrix to get the real eigen values
              CNTpp=CTpp*exp(ampl_in)
              IF (add_noise.and.do_smooth) THEN
-                CNTpp=CNTpp+wmap_npp
+                CNTpp=CNTpp+map_npp
              ENDIF
              DO i = 0, npix_cut-1
                 CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
@@ -268,8 +267,8 @@ MODULE Topology_Lmarg_mod
 !       ENDIF
 
 !   Compute exponential part of -LnL
-       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,wmap_signal,1,0.0d0,vec,1)
-       LnL_exp = DDOT(npix_cut,wmap_signal,1,vec,1)
+       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec,1)
+       LnL_exp = DDOT(npix_cut,map_signal,1,vec,1)
 
 !   trace has already been divided by 2
        LnLikelihood = 0.5d0*LnL_exp + trace
@@ -317,14 +316,14 @@ MODULE Topology_Lmarg_mod
                              !Get data projected part of curvature matrix
                              !Implicit input: (C+N)^-1 (ampl=best) in CNtpp,
                              !                 C       (ampl=1) in Ctpp
-                             !                 wmap_signal
+                             !                 map_signal
                              !                 npix_cut
      REAL(DP)    :: LmaxCurv,DDOT
      REAL(DP), allocatable,dimension(:) :: vec1,vec2
 
        allocate(vec1(0:npix_cut-1),vec2(0:npix_cut-1))
 
-       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,wmap_signal,1,0.0d0,vec1,1)
+       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
        call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
        LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)

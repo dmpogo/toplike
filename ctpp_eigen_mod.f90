@@ -37,7 +37,7 @@ CONTAINS
    ! The rest of a column is garbage.
 
       do ne=0,npix_fits-1
-         CTpp_evec_work(0:npix_cut-1,ne)=pack(CTpp_evec_work(:,ne),wmap_mask)
+         CTpp_evec_work(0:npix_cut-1,ne)=pack(CTpp_evec_work(:,ne),map_mask)
          CTpp_evec_work(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec_work(0:npix_cut-1,ne)
       enddo
 
