@@ -123,6 +123,7 @@ CONTAINS
     REAL(SP), DIMENSION(:,:), ALLOCATABLE    :: heal_map
     INTEGER, PARAMETER :: nlheader = 30
     CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
+    INTEGER :: iostatus
     REAL    :: nullval
     LOGICAL :: anynull,filefound
 
@@ -159,11 +160,19 @@ CONTAINS
 !    fake_file='./fake.fits'
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
-       OPEN(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
-       CLOSE(26,status='delete')
-       WRITE(0,*) 'Overwriting existing fits file'
+       open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
+       close(26,status='delete')
+       write(0,*) 'Overwriting existing fits file'
+    ELSE
+       open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted',status='new',iostat=iostatus)
+       IF ( iostatus > 0 ) THEN
+          write(0,*) 'Unable to open output ',TRIM(ADJUSTL(fake_file))
+          stop
+       ELSE
+          close(26)
+       ENDIF
     ENDIF
-
+    
     write(0,*)'Writing bintab'
     write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nmaps, nlheader
     CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
@@ -284,7 +293,7 @@ CONTAINS
 
     ! write(0,'(2(e10.5,1x))') (wmap_noise(i),wmap_npp(i,i),i=0,npix_cut-1)
     ! Deallocate read-in arrays
-    DEALLOCATE(wmap_data,wmap_noise,wmap_mask,wmap_beam,wmap_signal)
+    ! DEALLOCATE(wmap_data,wmap_noise,wmap_mask,wmap_beam,wmap_signal)
     RETURN
   END SUBROUTINE ReadWMAP_map
 
