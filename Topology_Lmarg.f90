@@ -232,7 +232,6 @@ PROGRAM Topology_Lmarg
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
-! Determines the number of modes of Ctpp and keeps the number constant
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   IF (make_map_only) THEN 
@@ -303,7 +302,8 @@ PROGRAM Topology_Lmarg
      WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
      WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', alpha,beta,gamma
   else
-     WRITE(0,'(6(1x,d15.7),3(1x,d12.4))')                             &
+     WRITE(0,'(f7.4,6(1x,d15.7),3(1x,d12.4))')                        &
+                 Ok,                                                  &
                  LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
                  ampl_best,ampl_var,ampl_curv,                        &
                  alpha,beta,gamma

@@ -4,13 +4,12 @@ MODULE TOPOLOGY_TYPES
   IMPLICIT NONE
 
   CHARACTER(LEN=*), PARAMETER :: code = 'TOPLIKE'
-  CHARACTER(LEN=*), PARAMETER :: version = 'Summer2010'
+  CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
-  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal, diag_noise
+  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_qhat
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
 
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp, CNTpp

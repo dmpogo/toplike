@@ -33,10 +33,17 @@ CONTAINS
 
 ! calculate Hermitean square root of correlation matrix. Spoils
     CNTpp=CTpp*ampl
-    IF(add_noise.and.do_smooth) THEN
-      CNTpp=CNTpp+map_npp
+    IF ( add_map_noise ) THEN
+       IF (add_noise.and.do_smooth) THEN
+          CNTpp=CNTpp+map_npp
+       ELSE
+          FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + map_npp(i,i)
+       ENDIF
+    ELSE
+! this is a regularization hack for the case one wants pure signal map
+       FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + epsil
     ENDIF
-    FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
+       
 !    IF(SVD) THEN
 !       WRITE(0,*)"Doing SVD MAP"
 !       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
@@ -209,7 +216,7 @@ CONTAINS
     
     INTEGER :: i,j
     REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: wmap_beam
-    REAL(DP), DIMENSION(:),   ALLOCATABLE   :: wmap_signal
+    REAL(DP), DIMENSION(:),   ALLOCATABLE   :: wmap_signal, diag_noise
     REAL(SP), DIMENSION(:,:), ALLOCATABLE   :: wmap_data, wmap_noise, wmap_mask 
     
 ! Allocate arrays and input necessary data. 
@@ -271,8 +278,9 @@ CONTAINS
 
 
 !Smooth noise if needed and store it
+    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+    map_npp = 0.d0
     IF (add_noise.and.do_smooth) THEN
-       ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
        ! map_npp(cut,cut) = map_beam(cut,fits) x transpose(map_beam)(fits,cut)
        FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=wmap_beam(0:npix_cut-1,i)*sqrt(wmap_noise(i,1))
        call DSYRK('L','N',npix_cut,npix_fits,1.0d0,wmap_beam,npix_fits,0.0d0,map_npp,npix_cut)
@@ -290,6 +298,8 @@ CONTAINS
     if (add_noise.and.(.not.do_smooth) ) then
        diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
     endif
+
+    FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
 
     ! write(0,'(2(e10.5,1x))') (wmap_noise(i),wmap_npp(i,i),i=0,npix_cut-1)
     ! Deallocate read-in arrays

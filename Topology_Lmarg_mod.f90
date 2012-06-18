@@ -183,13 +183,14 @@ MODULE Topology_Lmarg_mod
 !   Caution - only 'L' triangualr part in map_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
 
-       IF (add_noise.and.do_smooth) THEN
+!   Noise is either smoothed and fills the full matrix, or just a diagonal.
+!   Diagonal may also contain epsilon regularization so it is added even
+!   when add_noise=.FALSE.
+       IF ( add_noise.and.do_smooth ) THEN
           CNTpp=CNTpp+map_npp
+       ELSE
+          FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
        ENDIF
-!   add diagonal noise. Perhaps set to 0 or set as regularizer or the noise weights of the pixle
-       DO i = 0, npix_cut-1
-          CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
-       ENDDO
 
 !       ALLOCATE(D(0:npix_cut-1))
 !       IF(SVD) THEN
@@ -244,10 +245,9 @@ MODULE Topology_Lmarg_mod
              CNTpp=CTpp*exp(ampl_in)
              IF (add_noise.and.do_smooth) THEN
                 CNTpp=CNTpp+map_npp
+             ELSE
+                FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
              ENDIF
-             DO i = 0, npix_cut-1
-                CNTpp(i,i) = CNTpp(i,i) + diag_noise(i)
-             ENDDO
              call DSYEV('V', 'L',npix_cut,CNTpp,npix_cut,eigen,WORK,3*npix_cut,INFO)
              write(0,*) eigen
              LnLikelihood = Top_bad_value
