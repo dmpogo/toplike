@@ -19,7 +19,7 @@ PROGRAM Topology_Lmarg
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
-  CHARACTER(LEN=120) :: nice_out_file, run_out_file
+  CHARACTER(LEN=120) :: nice_out_file
 
 !  character(len=100) :: infile
 !------------------------------------------------------------------------
@@ -27,7 +27,6 @@ PROGRAM Topology_Lmarg
 !------------------------------------------------------------------------
 ! Read in files (even if not being used) 
    read(*,'(a)') nice_out_file
-   read(*,'(a)') run_out_file
 
 ! Wmap data files
    read(*,'(a)') map_signal_file
@@ -55,7 +54,6 @@ PROGRAM Topology_Lmarg
   read(*,*) add_map_noise
   read(*,*) iseed
   read(*,*) make_map_only
-  read(*,*) nice_output
 
   read(*,*) do_rotate
   read(*,*) alpha,beta,gamma
@@ -130,7 +128,6 @@ PROGRAM Topology_Lmarg
 
   IF(output_file) THEN
     OPEN(103,file=TRIM(nice_out_file),status='Unknown')
-    WRITE(103,'(1Xa,a)')'Full run file  :', TRIM(run_out_file)
     WRITE(103,'(1Xa,a)') 'CTpp file:', TRIM(infile)
     WRITE(103,'(1Xa,a)') 'Signal file   :', TRIM(map_signal_file)
 
@@ -287,29 +284,32 @@ PROGRAM Topology_Lmarg
 ! Use it together with CTpp to calculate Fisher matrix at the bestfit amplitude
 
   ampl_var =LmaxFisher()
-  ampl_curv=LmaxCurv()-ampl_var
+  ampl_curv=LmaxCurv()
+  write(*,*) ampl_var,ampl_curv
+  ampl_curv=ampl_curv-ampl_var
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)
  
 !  write(0,*) ampl_curv
 
-  if (nice_output) then
-     WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
-     WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
-     WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)
-     WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
-     WRITE(0,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
-     WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
-     WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', alpha,beta,gamma
-  else
-     WRITE(0,'(f7.4,6(1x,d15.7),3(1x,d12.4))')                        &
-                 Ok,                                                  &
-                 LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
-                 ampl_best,ampl_var,ampl_curv,                        &
-                 alpha,beta,gamma
-  endif
-  if (output_file) then
+! Debug output, will be written at the end of all convergence steps
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)
+  WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
+  WRITE(0,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
+  WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
+  WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', alpha,beta,gamma
+ 
+! Final one line answer to the standard output
+  WRITE(*,'(f7.4,6(1x,d15.7),3(1x,d12.4))')                        &
+        Ok,                                                  &
+        LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
+        ampl_best,ampl_var,ampl_curv,                        &
+        alpha,beta,gamma
 
+! Archive for storage in the nice commented file
+  if (output_file) then
      WRITE(103,'(1Xa,I)') 'npix_cut      : ', npix_cut
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)

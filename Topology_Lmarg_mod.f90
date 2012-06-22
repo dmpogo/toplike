@@ -17,8 +17,8 @@ MODULE Topology_Lmarg_mod
   CONTAINS
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! High level wrappers - they use only fixed global CTpp_evec/eval/lm 
-! Can be safely called from outside module without prelim global set up
+! High level wrappers - they use only static global CTpp_evec/eval/lm 
+! Can be safely called from outside of the module without prelim set up
 ! All of them set CTpp and CNTpp=(CTpp+N)^-1 as byproduct
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -122,7 +122,6 @@ MODULE Topology_Lmarg_mod
        call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,lmax,ang(1),ang(2),ang(3),.TRUE.)
 !       CTpp_evec_rotated=Ctpp_evec
        write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
-       !NELSON write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
   
 ! From rotated CTpp_evec_rotated and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec_rotated is corrupted on output
@@ -140,7 +139,7 @@ MODULE Topology_Lmarg_mod
      FUNCTION LnL_bestampl(ampl_best) 
      use Topology_map_mod
      ! Finds best amplitude and Log likelihood for globally given CTpp.
-     ! as well as (CTpp+N)^-1 return as CNTpp
+     ! as well defines (Abest*CTpp+N)^-1 in CNTpp
 
      real(DP), intent(inout) :: ampl_best
      real(DP)                :: LnL_bestampl
@@ -291,7 +290,7 @@ MODULE Topology_Lmarg_mod
                        !                 C       (at ampl=1) in Ctpp
                        !                 npix_cut
      INTEGER :: i,j
-     REAL(DP)    :: LmaxFisher
+     REAL(DP)    :: LmaxFisher, trace
      REAL(DP), allocatable,dimension(:,:) :: CTN_1CT
 
        allocate(CTN_1CT(0:npix_cut-1,0:npix_cut-1))
@@ -299,12 +298,16 @@ MODULE Topology_Lmarg_mod
        call DSYMM('L','L',npix_cut,npix_cut,1.0d0,CNTpp,npix_cut,CTpp,npix_cut,0.0d0,CTN_1CT,npix_cut)
     
        LmaxFisher=0.0d0
+       trace=0.d0
        do j=0,npix_cut-1
           do i=j+1,npix_cut-1
              LmaxFisher=LmaxFisher+2.0d0*CTN_1CT(i,j)**2
           enddo
           LmaxFisher=LmaxFisher+CTN_1CT(j,j)**2
+          trace = trace + CTN_1CT(j,j)
        enddo
+
+       write(0,*)'Gradient balance: Trace', trace
 
        LmaxFisher=0.5d0*LmaxFisher
 
@@ -325,6 +328,7 @@ MODULE Topology_Lmarg_mod
 
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
        call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
+       write(0,*)'Exponential part:' DDOT(npix_cut,vec1,1,vec2,1)
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
        LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)
     

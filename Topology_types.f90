@@ -32,8 +32,7 @@ MODULE TOPOLOGY_TYPES
   !INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, mode_number
 
   LOGICAL  :: do_mask, make_map, add_noise, do_rotate, add_map_noise
-  LOGICAL  :: do_smooth, find_best_angles, nice_output, First_time
-  LOGICAL  :: make_map_only
+  LOGICAL  :: do_smooth, find_best_angles, make_map_only, First_time
   !LOGICAL  :: do_smooth, find_best_angles, nice_output, SVD, First_time
 
   !NAMELIST /toplike/  map_signal_file, map_noise_file,  map_mask_file, &
