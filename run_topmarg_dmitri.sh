@@ -42,7 +42,7 @@ G_fwhm=492.0
 noise_file=${data_basedir}'/coadd_noise_8.2deg_16.fits'
 #epsil is always added to the diagonal of CTpp. May be used for regularization
 #It must be set to a value, put 0 (or negative) for no regularization
-epsil='0.0d0'
+epsil='1.0d-7'
 
 #make map visualization from CTpp
 make_map='.FALSE.'

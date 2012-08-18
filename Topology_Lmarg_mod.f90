@@ -328,7 +328,7 @@ MODULE Topology_Lmarg_mod
 
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
        call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
-       write(0,*)'Exponential part:' DDOT(npix_cut,vec1,1,vec2,1)
+       write(0,*)'Exponential part:', DDOT(npix_cut,vec1,1,vec2,1)
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
        LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)
     

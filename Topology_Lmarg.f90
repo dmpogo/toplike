@@ -80,7 +80,7 @@ PROGRAM Topology_Lmarg
   INQUIRE(file=TRIM(map_mask_file),exist=found)
   IF (found) THEN
      do_mask = .TRUE.
-     WRITE(0,*) 'Using a mask'
+     WRITE(0,*) 'Using a mask', TRIM(map_mask_file)
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
@@ -89,7 +89,7 @@ PROGRAM Topology_Lmarg
   INQUIRE(file=TRIM(beam_file),exist=found)
   IF (found) THEN
      do_smooth = .TRUE.
-     WRITE(0,*) 'Smoothing map'
+     WRITE(0,*) 'Smoothing map with', TRIM(beam_file)
   ELSE
      do_smooth = .FALSE.
      WRITE(0,*) 'Not smoothing map'
@@ -103,6 +103,7 @@ PROGRAM Topology_Lmarg
      ELSE
         WRITE(0,*) 'Using only diagonal of noise matrix'
      ENDIF
+     WRITE(0,*)'from', TRIM(map_noise_file)
   ELSE
      add_noise = .FALSE.
      add_map_noise = .FALSE. !Cannot add noise if no noise file
@@ -285,7 +286,7 @@ PROGRAM Topology_Lmarg
 
   ampl_var =LmaxFisher()
   ampl_curv=LmaxCurv()
-  write(*,*) ampl_var,ampl_curv
+  write(0,*) ampl_var,ampl_curv
   ampl_curv=ampl_curv-ampl_var
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)
