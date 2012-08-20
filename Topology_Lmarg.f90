@@ -208,7 +208,6 @@ PROGRAM Topology_Lmarg
 !
 
   nmaps     = 1
-
   CALL ReadWMAP_map()
 
 
@@ -285,8 +284,9 @@ PROGRAM Topology_Lmarg
 
   ampl_var =LmaxFisher()
   ampl_curv=LmaxCurv()
-  write(*,*) ampl_var,ampl_curv
-  ampl_curv=ampl_curv-ampl_var
+! write(*,*) ampl_var,ampl_curv
+!  ampl_curv=ampl_curv-ampl_var
+  ampl_curv=ampl_var-ampl_curv
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)
  

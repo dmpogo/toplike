@@ -310,8 +310,28 @@ MODULE Topology_Lmarg_mod
        write(0,*)'Gradient balance: Trace', trace
 
        LmaxFisher=0.5d0*LmaxFisher
+       !allocate(C(0:npix_cut-1,0:npix_cut-1))
+       !allocate(C2(0:npix_cut-1,0:npix_cut-1))
+       
+       !do j=0,npix_cut-1
+       !   do i=j+1,npix_cut-1
+       !   C2(j,i)=CTN_1CT(i,j)
+       !   C2(i,j)=CTN_1CT(i,j)
+       !   enddo
+       !   C2(j,j)=CTN_1CT(j,j)
+       ! enddo
+       
+       !call DSYMM('L','L',npix_cut,npix_cut,1.0d0,CTN_1CT,npix_cut,C2,npix_cut,0.0d0,C,npix_cut)
+       !trace=0.0d0
+       !do i=0, npix_cut-1
+       !   trace = trace + 0.5*C(i,i)
+       !enddo
+
+       write(0,*)'lmaxfisher', LmaxFisher
+       !write(0,*)'trace', trace
 
        deallocate(CTN_1CT)
+       !deallocate(C,C2)
        RETURN
      END FUNCTION LmaxFisher
 
@@ -321,18 +341,33 @@ MODULE Topology_Lmarg_mod
                              !                 C       (ampl=1) in Ctpp
                              !                 map_signal
                              !                 npix_cut
-     REAL(DP)    :: LmaxCurv,DDOT
+     REAL(DP)    :: LmaxCurv,DDOT,trace
      REAL(DP), allocatable,dimension(:) :: vec1,vec2
+     REAL(DP), allocatable,dimension(:,:) :: CTN_1CT
+     integer :: i
 
        allocate(vec1(0:npix_cut-1),vec2(0:npix_cut-1))
+       allocate(CTN_1CT(0:npix_cut-1,0:npix_cut-1))
+      ! allocate(C(0:npix_cut-1,0:npix_cut-1))
 
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
        call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
-       write(0,*)'Exponential part:' DDOT(npix_cut,vec1,1,vec2,1)
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
        LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)
-    
+       
+       write(0,*)'Exponential part:', LmaxCurv
+       
+      ! call DSYMM('L','L',npix_cut,npix_cut,1.0d0,CNTpp,npix_cut,CTpp,npix_cut,0.0d0,CTN_1CT,npix_cut)
+      ! call DSYMM('L','L',npix_cut,npix_cut,1.0d0,CTN_1CT,npix_cut,CTN_1CT,npix_cut,0.0d0,C,npix_cut)
+      ! trace=0.0d0
+      ! do i=0, npix_cut-1
+      !    trace = trace + 0.5*C(i,i)
+      ! enddo
+      ! LmaxCurv=LmaxCurv+trace
+       !write(0,*)'trace', trace
        deallocate(vec1,vec2)
+       deallocate(CTN_1CT)
+       !deallocate(C)
        RETURN
      END FUNCTION LmaxCurv
 

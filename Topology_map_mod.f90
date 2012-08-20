@@ -216,6 +216,7 @@ CONTAINS
     
     INTEGER :: i,j
     REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: wmap_beam
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: beam
     REAL(DP), DIMENSION(:),   ALLOCATABLE   :: wmap_signal, diag_noise
     REAL(SP), DIMENSION(:,:), ALLOCATABLE   :: wmap_data, wmap_noise, wmap_mask 
     
@@ -225,6 +226,7 @@ CONTAINS
     ALLOCATE(wmap_noise(0:npix_fits-1,1:nmaps))
     ALLOCATE(wmap_mask(0:npix_fits-1,1:nmaps))
     ALLOCATE(wmap_beam(0:npix_fits-1,0:npix_fits-1))
+    ALLOCATE(beam(0:npix_fits-1,0:npix_fits-1))
 
     WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
     WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
@@ -249,7 +251,7 @@ CONTAINS
     IF(do_smooth) THEN
        WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(beam_file))
        open(100,file=TRIM(ADJUSTL(beam_file)), status='unknown', form='unformatted')
-       read(100)wmap_beam
+       read(100)beam
     ENDIF
 
 ! data is in, now process it and store in global arrays
@@ -261,10 +263,20 @@ CONTAINS
 
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
-
 !   Pack wmap_beam into (npix_cut,npix_fits) size
-    FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(wmap_beam(:,i),map_mask)
-
+    FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(beam(:,i),map_mask)
+    DEALLOCATE(beam)
+ !npix_cut=0
+ !do i=0, npix_fits-1
+ !npix_cut=0
+ !do j=0, npix_fits-1
+ !  if (map_mask(j)) then
+ !     wmap_beam(npix_cut,i)=wmap_beam(j,i)
+ !     npix_cut=npix_cut+1
+ !  endif
+ !enddo
+ !write(0,*) npix_cut
+ !enddo
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_smooth) THEN
@@ -275,7 +287,6 @@ CONTAINS
     ELSE
        map_signal = pack(wmap_data(:,1),map_mask)
     ENDIF
-
 
 !Smooth noise if needed and store it
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
