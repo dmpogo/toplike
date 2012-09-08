@@ -6,7 +6,7 @@ MODULE Topology_map_mod
   USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map, Read_w8ring
+  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map
   
 CONTAINS
 
@@ -190,80 +190,71 @@ CONTAINS
     RETURN
   END SUBROUTINE WriteWMAP_map
 
-  SUBROUTINE Read_w8ring()
-
-    real(DP)    :: nullval
-    logical     :: found,anynull
-    
-    allocate(w8ring(1:2*nside,1:1))
-
-    write(0,*)w8_file
-    INQUIRE(file=TRIM(w8_file),exist=found)
-    if (found == .TRUE.) then
-        call read_bintab(w8_file,w8ring,2*nside,1,nullval,anynull)
-        write(0,*)w8ring
-        w8ring=1.d0+w8ring
-    else
-        w8ring=1.d0
-        write(0,*), 'Ring weights file is not found, using uniform weights'
-    endif
-
-  END SUBROUTINE Read_w8ring  
-
 
   SUBROUTINE ReadWMAP_map()
-    !Global map_signal, map_signal_file, map_noise_file, map_mask_file, nside
+    USE beams
+    !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE   :: wmap_beam
-    REAL(DP), DIMENSION(:),   ALLOCATABLE   :: wmap_signal, diag_noise
-    REAL(SP), DIMENSION(:,:), ALLOCATABLE   :: wmap_data, wmap_noise, wmap_mask 
+    INTEGER :: i,j,ordering
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: wmap_beam
+    REAL(DP), DIMENSION(:),   ALLOCATABLE :: wmap_signal, wmap_noise, diag_noise
+    REAL(SP), DIMENSION(:,:), ALLOCATABLE :: wmap_data, wmap_mask 
     
-! Allocate arrays and input necessary data. 
-! Input must be full-sky in ring format in globally accessible files
-    ALLOCATE(wmap_data(0:npix_fits-1,1:nmaps))
-    ALLOCATE(wmap_noise(0:npix_fits-1,1:nmaps))
-    ALLOCATE(wmap_mask(0:npix_fits-1,1:nmaps))
-    ALLOCATE(wmap_beam(0:npix_fits-1,0:npix_fits-1))
+! Input must be full-sky in globally accessible files
+    if ( getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering) /= npix_fits ) then
+       stop 'Mismatch between map and ctpp sizes'
+    endif
 
+! Allocate arrays and input necessary data. 
+    ALLOCATE(wmap_data(0:npix_fits-1,1:nmaps))
     WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
-    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
     CALL input_map(TRIM(ADJUSTL(map_signal_file)),wmap_data,npix_fits,nmaps)
 
-! Assumes diagonal noise, and wmap_noise to contain hit counts
-    IF(add_noise) THEN
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
-       CALL input_map(TRIM(ADJUSTL(map_noise_file)),wmap_noise,npix_fits,nmaps)
-       WHERE( wmap_noise > 0.0 ) wmap_noise = 1./wmap_noise
+! Check ordering, CTpp is probably given in RING (to do: auto-synchronized)
+    if ( ordering == 0 ) then
+       write(0,*)'Ordering of the input map is unknown, assumed RING'
+    else if ( ordering == 2 ) then
+       write(0,*)'Input converted from NESTED to RING'
+       call convert_nest2ring(nside,wmap_data)
+    endif
+
+    ALLOCATE(wmap_noise(0:npix_fits-1))
+    IF( add_noise .and. nmaps > 1 ) THEN
+       ! Assumes diagonal noise, 
+       ! and wmap_data to contain inverse noise in the last map
+       where( wmap_data(:,nmaps) > 0.0 ) wmap_noise(:) = 1.d0/wmap_data(:,nmaps)
     ELSE
-       wmap_noise(:,1) = 0.0
+       wmap_noise = 0.0_dp
     ENDIF
 
-    IF(do_mask) THEN
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
-       CALL input_map(TRIM(ADJUSTL(map_mask_file)),wmap_mask,npix_fits,nmaps)
-    ELSE
-       wmap_mask(:,1) = 1.0
-    ENDIF
-
-    IF(do_smooth) THEN
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(beam_file))
-       open(100,file=TRIM(ADJUSTL(beam_file)), status='unknown', form='unformatted')
-       read(100)wmap_beam
-    ENDIF
-
-! data is in, now process it and store in global arrays
-
-! Count unmasked pixels and store the mask
     ALLOCATE(map_mask(0:npix_fits-1))
-    map_mask = ( wmap_mask(:,1) /= 0 ) 
-    npix_cut = count(map_mask)
+    IF(do_mask) THEN
+       ALLOCATE(wmap_mask(0:npix_fits-1,1:1))
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
+       CALL input_map(TRIM(ADJUSTL(map_mask_file)),wmap_mask,npix_fits,1)
+       map_mask = ( wmap_mask(:,1) /= 0 ) 
+       DEALLOCATE(wmap_mask)
+    ELSE
+       map_mask = .true.
+    ENDIF
 
+! Count unmasked pixels 
+    npix_cut = count(map_mask)
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
 
-!   Pack wmap_beam into (npix_cut,npix_fits) size
-    FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(wmap_beam(:,i),map_mask)
+! Read-in beam if requested
+    IF(do_smooth) THEN
+       ALLOCATE(wmap_beam(0:npix_fits-1,0:npix_fits-1))
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(beam_file))
+       open(100,file=TRIM(ADJUSTL(beam_file)), status='unknown', form='unformatted')
+       read(100)wmap_beam
+       call weight_beam(wmap_beam,2)
+       !   Pack wmap_beam into (npix_cut,npix_fits) size according to mask
+       forall(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(wmap_beam(:,i),map_mask)
+    ENDIF
+
+! data is in, now process it and store in global arrays
 
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))
@@ -275,18 +266,19 @@ CONTAINS
     ELSE
        map_signal = pack(wmap_data(:,1),map_mask)
     ENDIF
-
+    DEALLOCATE(wmap_data)
 
 !Smooth noise if needed and store it
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
     map_npp = 0.d0
     IF (add_noise.and.do_smooth) THEN
        ! map_npp(cut,cut) = map_beam(cut,fits) x transpose(map_beam)(fits,cut)
-       FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=wmap_beam(0:npix_cut-1,i)*sqrt(wmap_noise(i,1))
+       FORALL(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=wmap_beam(0:npix_cut-1,i)*sqrt(wmap_noise(i))
        call DSYRK('L','N',npix_cut,npix_fits,1.0d0,wmap_beam,npix_fits,0.0d0,map_npp,npix_cut)
     ENDIF
+    if ( allocated(wmap_beam) )  DEALLOCATE(wmap_beam)
 
-! diagonal needs always to be defined, although may be zero
+! diagonal noise needs always to be defined, although may be zero
     ALLOCATE(diag_noise(0:npix_cut-1))
     if ( epsil > 0.0 ) then
         diag_noise = epsil
@@ -294,16 +286,14 @@ CONTAINS
         diag_noise = 0.0d0
     endif
 
-    ! If noise was smoothed, it is in map_npp, otherwise add 1/hit_counts
+    ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
     if (add_noise.and.(.not.do_smooth) ) then
-       diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
+       diag_noise = diag_noise + pack(wmap_noise,map_mask)
     endif
+    DEALLOCATE(wmap_noise)
 
     FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
 
-    ! write(0,'(2(e10.5,1x))') (wmap_noise(i),wmap_npp(i,i),i=0,npix_cut-1)
-    ! Deallocate read-in arrays
-    ! DEALLOCATE(wmap_data,wmap_noise,wmap_mask,wmap_beam,wmap_signal)
     RETURN
   END SUBROUTINE ReadWMAP_map
 

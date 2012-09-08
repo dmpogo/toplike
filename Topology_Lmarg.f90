@@ -6,10 +6,11 @@ PROGRAM Topology_Lmarg
   !Preliminary version          Carlo 14Jun04 CITA
   !Further development          Dmitri June-Aug 2004 UofA
   !
-  USE nrtype
+!  USE nrtype
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
+  USE healpix_extras, ONLY : Read_w8ring
   USE lm_rotate, ONLY : getcplm
   USE PIX_TOOLS
   IMPLICIT NONE
@@ -21,6 +22,9 @@ PROGRAM Topology_Lmarg
   real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
   CHARACTER(LEN=120) :: nice_out_file
 
+  integer(I4B) :: i
+  real(DP)     :: sigma_ii
+
 !  character(len=100) :: infile
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
@@ -30,7 +34,6 @@ PROGRAM Topology_Lmarg
 
 ! Wmap data files
    read(*,'(a)') map_signal_file
-   read(*,'(a)') map_noise_file
 ! Map modification files
    read(*,'(a)') map_mask_file
    read(*,'(a)') beam_file
@@ -60,6 +63,7 @@ PROGRAM Topology_Lmarg
   read(*,*) find_best_angles
   read(*,*) lmax
 
+  read(*,*) add_noise
   read(*,*) epsil
 
 
@@ -95,17 +99,13 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Not smoothing map'
   ENDIF
 
-  INQUIRE(file=TRIM(map_noise_file),exist=found)
-  IF (found) THEN
-     add_noise = .TRUE.
+  IF (add_noise) THEN
      IF (do_smooth) THEN
         WRITE(0,*) 'Using full smoothed noise matrix'
      ELSE
-        WRITE(0,*) 'Using only diagonal of noise matrix'
+        WRITE(0,*) 'Using only diagonal noise'
      ENDIF
-     WRITE(0,*)'from', TRIM(map_noise_file)
   ELSE
-     add_noise = .FALSE.
      add_map_noise = .FALSE. !Cannot add noise if no noise file
      WRITE(0,*) 'Not using noise'
   ENDIF
@@ -188,6 +188,8 @@ PROGRAM Topology_Lmarg
  !    WRITE(0,*) 'Using Cholesky decomposition method'
  ! ENDIF
 !-------------------------------------------------------------------
+! Read full sky CTpp in, put it temporarily into CTpp_evec
+!
   open(102,file=TRIM(infile),status='old',form='unformatted')
   read(102) npix_fits
   write(0,*)'npix=',npix_fits
@@ -195,12 +197,17 @@ PROGRAM Topology_Lmarg
      write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
      stop
   endif
-  allocate(pixels(3,npix_fits))
   allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
   read(102)CTpp_evec
-  read(102)pixels
   close(102)
-  deallocate(pixels)
+
+! Test hack - strictly enforce  identical diagonal, delete for real run 
+
+  do i=0, npix_fits-1
+     sigma_ii = sqrt(CTpp_evec(i,i))
+     CTpp_evec(:,i) = CTpp_evec(:,i)/sigma_ii
+     CTpp_evec(i,:) = CTpp_evec(i,:)/sigma_ii
+  enddo
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
@@ -208,18 +215,16 @@ PROGRAM Topology_Lmarg
 ! of CTpp that is read in.  Calling shell script should check for that.
 !
 
-  nmaps     = 1
-
+  CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ReadWMAP_map()
-
-
   write(0,*)'Read the data in'
+
   !GOTO 991 ! Go straight to make map
 !-------------------------------------------------------------------
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
 !                  pixel-pixel correlations in eigenvector decomposition
-!     CTpp_cplm  - lm decomposition of CTpp_evec
+!     CTpp_cplm  - lm decomposition of CTpp_evec truncated to significant evalues
 !     CTpp       - Cut sky pixel-pixel correlation for given rotation, norm ampl
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
 
@@ -228,7 +233,8 @@ PROGRAM Topology_Lmarg
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
+  write(0,*)'Iam done eigenvalues'
+!  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
@@ -243,29 +249,8 @@ PROGRAM Topology_Lmarg
 
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
-     allocate(CTpp_cplm(0:lmax*(lmax+2),0:npix_fits-1))
-     CALL Read_w8ring()
-     CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,lmax,w8ring)
-!     if (SVD) then
-!        CALL MODECOUNTER()
-!     endif
-  !NELSON LOOP
-     ! ang(:)=0.0d0
-     ! allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
-     ! call rotate_ctpp(CTpp_evec_temp,CTpp_cplm,nside,lmax,ang(1),ang(2),ang(3),.TRUE.)
-     !call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
-     !deallocate(CTpp_evec_temp)
-     !OPEN(666,file="lnampl.data",status='NEW')
-     !WRITE(0,*)"entering nelson loop"
-     !amp=-10.0d0
-     !do
-     !  lnamp=LnLikelihood(amp)
-     !  write(666,*)amp,lnamp
-     !  amp=amp+0.1
-     !enddo
-     !CLOSE(666)
-     !STOP
-  !END NELSON LOOP
+     allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
+     call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
@@ -273,9 +258,6 @@ PROGRAM Topology_Lmarg
         CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
      endif
   else
-!     if (SVD) then
-!        CALL MODECOUNTER()
-!     endif
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
   endif
   ampl_best=exp(ampl_best)
@@ -286,7 +268,8 @@ PROGRAM Topology_Lmarg
 
   ampl_var =LmaxFisher()
   ampl_curv=LmaxCurv()
-  write(0,*) ampl_var,ampl_curv
+  write(0,*) 'LmaxFisher',ampl_var
+  write(0,*) 'LmaxCurv_part',ampl_curv
   ampl_curv=ampl_curv-ampl_var
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)

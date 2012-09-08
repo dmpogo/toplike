@@ -7,6 +7,7 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
+  REAL(DP),    PARAMETER :: Top_Evalue_precision = 1.d-6
 
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
@@ -29,11 +30,11 @@ MODULE TOPOLOGY_TYPES
   REAL(DP) :: epsil, Ok, OmegaL, H0
   !REAL(DP) :: epsil, condition_num
   INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
-  !INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, mode_number
+  INTEGER  :: n_evalues
 
-  LOGICAL  :: do_mask, make_map, add_noise, do_rotate, add_map_noise
-  LOGICAL  :: do_smooth, find_best_angles, make_map_only, First_time
-  !LOGICAL  :: do_smooth, find_best_angles, nice_output, SVD, First_time
+  LOGICAL  :: do_mask, do_rotate, find_best_angles, add_noise, do_smooth
+  LOGICAL  :: make_map, make_map_only, add_map_noise
+  !LOGICAL  :: nice_output, SVD, First_time
 
   !NAMELIST /toplike/  map_signal_file, map_noise_file,  map_mask_file, &
   !     nside, lmax, w8_file, beam_file, do_rotate, find_best_angles, &

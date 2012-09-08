@@ -3,7 +3,6 @@ MODULE Topology_Lmarg_mod
   !Program to calculate th likelihood of a topology model
   !wrt the CMB data with various cuts.
   !
-  USE nrtype
   USE Topology_types
   USE ctpp_eigen_mod
   !USE Topology_map_mod_nel
@@ -81,11 +80,18 @@ MODULE Topology_Lmarg_mod
      real(DP), allocatable,dimension(:,:) :: CTpp_evec_temp
 
 ! From global CTpp_evec and Ctpp_eval  reconstruct  Ctpp
-! Reconstruction corrupts CTpp_evec, so work on copy
-       allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
-       CTpp_evec_temp=CTpp_evec
+! Reconstruction corrupts CTpp_evec, so work on copy,
+! but for copy one needs only significan eigenvalues
+       allocate(CTpp_evec_temp(0:npix_fits-1,0:n_evalues-1))
+       CTpp_evec_temp=CTpp_evec(0:npix_fits-1,0:n_evalues-1)
        call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
        deallocate(CTpp_evec_temp)
+
+       open(101,file='reconstructedCTpp',form='unformatted')
+       write(101)npix_cut
+       write(101)CTpp
+       close(101)
+       stop
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
        ampl_best=-1.0d0                !Ininial guess for the amplitude
@@ -101,7 +107,6 @@ MODULE Topology_Lmarg_mod
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
      FUNCTION LnLrotated_at_best_amplitude(ang)   ! driver for amoeba
-     use nrtype
      use Topology_types
      use Topology_map_mod
      use LM_ROTATE
@@ -116,18 +121,47 @@ MODULE Topology_Lmarg_mod
      real(DP)                           ::  LnLrotated_at_best_amplitude
 
      real(DP), allocatable,dimension(:,:) :: CTpp_evec_rotated
+     real(DP) :: DDOT, norm, norm1,  minnorm, maxnorm
+     integer :: i
 
 ! Rotate CTpp_evec (in CTpp_cplm form) into temporary CTpp_evec_rotated
-       allocate(CTpp_evec_rotated(0:npix_fits-1,0:npix_fits-1))
-       call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,lmax,ang(1),ang(2),ang(3),.TRUE.)
-!       CTpp_evec_rotated=Ctpp_evec
+       allocate(CTpp_evec_rotated(0:npix_fits-1,0:n_evalues-1))
+!       write(0,*)CTpp_cplm(0:100,0)
+       call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
        write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
+
+!       write(0,*) CTpp_eval(0)
+!       do i=0,npix_fits-1
+!          write(0,*)CTpp_evec_rotated(i,0),CTpp_evec(i,0)
+!       enddo
+!       stop
+!       minnorm=2.d0
+!       maxnorm=0.d0
+!       write(0,*)'Eigenvector norms', n_evalues
+!       do i=0,n_evalues-1 
+!           norm=DDOT(npix_fits,CTpp_evec_rotated(:,i),1,CTpp_evec_rotated(:,i),1)
+!           norm1=DDOT(npix_fits,CTpp_evec(:,i),1,CTpp_evec(:,i),1)
+!           if (norm > maxnorm) maxnorm=norm
+!           if (norm < minnorm) minnorm=norm
+!           write(0,'(i4,1x,f6.4,1x,e14.8,1x,e14.8)'),i,norm1,norm,CTpp_eval(i)
+!       enddo
+!       stop
+!       write(0,*)'Eigenvector norms:', minnorm,maxnorm
   
 ! From rotated CTpp_evec_rotated and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec_rotated is corrupted on output
        call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_rotated)
        deallocate(CTpp_evec_rotated)
        write(0,*)'and reconstructed'
+
+! Test output and stop ==============
+       open(101,file='rotatedCTpp',form='unformatted')
+       write(101)npix_cut
+       write(101)CTpp
+       close(101)
+       stop
+! ===================================
+
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
@@ -327,8 +361,9 @@ MODULE Topology_Lmarg_mod
        allocate(vec1(0:npix_cut-1),vec2(0:npix_cut-1))
 
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
+       write(0,*)'exp logL', DDOT(npix_cut,vec1,1,map_signal,1)
        call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
-       write(0,*)'Exponential part:', DDOT(npix_cut,vec1,1,vec2,1)
+       write(0,*)'Gradient balance: exponential part:', DDOT(npix_cut,vec1,1,vec2,1)
        call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
        LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)
     
@@ -340,8 +375,7 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(out), dimension(:,:) :: p
      real(DP), intent(out), dimension(:)   :: y
 
-     integer :: i
-
+     integer :: i 
         p(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp, 0.1_dp /)    ! alphas
         p(:,2) = (/ 0.0_dp, 0.0_dp, 0.1_dp, 0.0_dp /)    ! betas
         p(:,3) = (/ 0.0_dp, 0.1_dp, 0.0_dp, 0.0_dp /)    ! gammas
