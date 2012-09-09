@@ -203,11 +203,11 @@ PROGRAM Topology_Lmarg
 
 ! Test hack - strictly enforce  identical diagonal, delete for real run 
 
-  do i=0, npix_fits-1
-     sigma_ii = sqrt(CTpp_evec(i,i))
-     CTpp_evec(:,i) = CTpp_evec(:,i)/sigma_ii
-     CTpp_evec(i,:) = CTpp_evec(i,:)/sigma_ii
-  enddo
+!  do i=0, npix_fits-1
+!     sigma_ii = sqrt(CTpp_evec(i,i))
+!     CTpp_evec(:,i) = CTpp_evec(:,i)/sigma_ii
+!     CTpp_evec(i,:) = CTpp_evec(i,:)/sigma_ii
+!  enddo
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
@@ -216,9 +216,7 @@ PROGRAM Topology_Lmarg
 !
 
   CALL Read_w8ring(nside,w8ring,w8_file)
-  write(0,*)'I read rings'
   CALL ring2pixw8(w8ring,w8pix)
-  write(0,*)'I set w8pix'
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 
@@ -236,8 +234,7 @@ PROGRAM Topology_Lmarg
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
-  write(0,*)'Iam done eigenvalues'
-!  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
+  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters

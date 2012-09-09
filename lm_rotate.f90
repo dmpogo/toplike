@@ -85,7 +85,7 @@ contains
     DO p = 0,n_evalues-1
 
 !$OMP CRITICAL
-       write(0,*)'---After rotation-------', p
+!test       write(0,*)'---After rotation-------', p
        alm = DCMPLX(0.d0, 0.d0)
        DO l = 0, lmax
           indl = l**2 + l
@@ -99,9 +99,9 @@ contains
                 sgn = -sgn
              ENDDO
           ENDDO
-       if (l <= lmax  ) then
-          write(0,*) l, alm(1,l,0:l)
-       endif
+!test       if (l <= lmax  ) then
+!test          write(0,*) l, alm(1,l,0:l)
+!test       endif
        ENDDO
        IF(n_plm .eq. nside*(lmax+1)*(lmax+2) ) THEN
           CALL alm2map(nside, lmax, lmax, alm, map, plm(0:n_plm-1,1))
@@ -111,7 +111,7 @@ contains
        ctpp(:,p) = map(:)
 !$OMP END CRITICAL
 
-          write(0,*)'----------------------'
+!test          write(0,*)'----------------------'
     ENDDO
 !$OMP END PARALLEL DO
     !DEALLOCATE(dlmm)

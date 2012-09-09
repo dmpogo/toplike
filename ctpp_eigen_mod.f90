@@ -48,16 +48,16 @@ CONTAINS
       deallocate(WORK)
 
 ! Test output =======
-      do ipix=0,npix_fits-1
-         write(0,*) CTpp_eval(ipix)
-      enddo
+!      do ipix=0,npix_fits-1
+!         write(0,*) CTpp_eval(ipix)
+!      enddo
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
       evalue_min   = Top_Evalue_precision*SUM(CTpp_eval)
       n_evalues    = count(CTpp_eval >= evalue_min)
 ! Test case
-      n_evalues = 5
+!      n_evalues = 5
 ! ====================
       write(0,*)evalue_min, n_evalues
       return
