@@ -10,7 +10,7 @@ PROGRAM Topology_Lmarg
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
-  USE healpix_extras, ONLY : Read_w8ring
+  USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
   USE lm_rotate, ONLY : getcplm
   USE PIX_TOOLS
   IMPLICIT NONE
@@ -216,6 +216,9 @@ PROGRAM Topology_Lmarg
 !
 
   CALL Read_w8ring(nside,w8ring,w8_file)
+  write(0,*)'I read rings'
+  CALL ring2pixw8(w8ring,w8pix)
+  write(0,*)'I set w8pix'
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 

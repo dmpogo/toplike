@@ -250,9 +250,11 @@ CONTAINS
        open(100,file=TRIM(ADJUSTL(beam_file)), status='unknown', form='unformatted')
        read(100)wmap_beam
        call weight_beam(wmap_beam,2)
+       write(0,*)'done beam weightening'
        !   Pack wmap_beam into (npix_cut,npix_fits) size according to mask
        forall(i=0:npix_fits-1) wmap_beam(0:npix_cut-1,i)=pack(wmap_beam(:,i),map_mask)
     ENDIF
+
 
 ! data is in, now process it and store in global arrays
 

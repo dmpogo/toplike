@@ -55,7 +55,7 @@ default: topmarg
 %.o:%.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
 
-topmarg: $(OBJ) $(NRECIPES)
+topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
 tidy:

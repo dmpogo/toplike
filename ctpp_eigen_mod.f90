@@ -13,7 +13,6 @@ CONTAINS
    !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
    integer(I4B)                          :: INFO,ipix,inverse_pix, nrings
-   integer(I4B), allocatable, dimension(:) :: rings
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP), allocatable, dimension(:,:) :: Bweights
    real(DP)                              :: evalue_min, eval_temp
@@ -26,19 +25,12 @@ CONTAINS
 
          ! Set diagonal matrix of weights Bweights
          allocate( Bweights(0:npix_fits-1, 0:npix_fits-1) )
-         allocate( rings(0:npix_fits-1) )
-         call ringboundaries(nside,nrings,rings)
          Bweights = 0.d0
-         do ipix = 0, npix_fits/2+2*nside-1
-           Bweights(ipix,ipix) = w8ring(pix2iring(nside,ipix,rings)+1,1) 
-         enddo
-         do ipix = npix_fits/2+2*nside, npix_fits-1
-           Bweights(ipix,ipix) = w8ring(nrings-pix2iring(nside,ipix,rings),1) 
-         enddo
+         forall(ipix=0:npix_fits-1) Bweights(ipix,ipix)=w8pix(ipix,1)
 
          ! Solve generalized problem CTpp*B*evec = eval*evec
          call DSYGV(2,'V','L',npix_fits,CTpp_evec,npix_fits,Bweights,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
-         deallocate(Bweights,rings)
+         deallocate(Bweights)
       endif   
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
 

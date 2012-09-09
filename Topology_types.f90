@@ -19,7 +19,7 @@ MODULE TOPOLOGY_TYPES
   COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
 !  COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_clm
 
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: w8ring
+  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: w8ring, w8pix
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
   CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
