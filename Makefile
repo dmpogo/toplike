@@ -17,6 +17,8 @@ LDFLAGS	=
 
 NRECIPES = ../nr/librecipes_f90.a
 
+CTPPPROC = ../lib/libctppproc.a
+
 # MKL_ROOT is set by intel shell script, source it in .bashrc
 # source /opt/intel/Compiler/$(INTEL_VERSION)/mkl
 # 
@@ -53,8 +55,8 @@ default: topmarg
 %.o:%.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
 
-topmarg: $(OBJ) $(NRECIPES)
-	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES)
+topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
+	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
 tidy:
 	-rm -f $(OBJ)

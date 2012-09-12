@@ -1,3 +1,5 @@
 *.[oa]
 include/*
 topmarg
+*.swp
+*.swo

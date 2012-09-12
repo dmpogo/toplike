@@ -43,18 +43,16 @@ contains
   !                              2) Corrected parallelization
   !-----------------------------------------------------------------
   
-  SUBROUTINE rotate_ctpp(ctpp, cplm, nside, lmax, a, b, g, redo_dlmm)
+  SUBROUTINE rotate_ctpp(ctpp, cplm, nside, n_evalues, lmax, a, b, g, redo_dlmm)
     IMPLICIT NONE
 
-    REAL(DP),    DIMENSION(0: 12 * nside**2 - 1, 0: 12 * nside**2 - 1), & 
-                     intent(out) :: ctpp
-    COMPLEX(DP), DIMENSION(0: lmax * (lmax + 2), 0: 12 * nside**2 - 1), &
-                      intent(in) :: cplm
-    INTEGER,          intent(in) :: nside,lmax
+    REAL(DP),    DIMENSION(0: 12*nside**2-1, 0:n_evalues-1), intent(out) :: ctpp
+    COMPLEX(DP), DIMENSION(0: lmax*(lmax+2), 0:n_evalues-1), intent(in) :: cplm
+    INTEGER,          intent(in) :: nside,lmax,n_evalues
     REAL(DP),         intent(in) :: a, b, g
     LOGICAL,          intent(in) :: redo_dlmm
     
-    INTEGER                                        :: l, m, mp, npix, p, indl
+    INTEGER                                        :: l, m, mp, p, indl
     REAL(DP),    DIMENSION(0: 12 * nside**2 - 1)   :: map
     COMPLEX(DP), DIMENSION(1: 1, 0: lmax, 0: lmax) :: alm
     COMPLEX(DP), DIMENSION(0: lmax)                :: ea,eg
@@ -62,13 +60,18 @@ contains
 
     integer :: OMP_GET_THREAD_NUM
 
-    npix = 12 * nside**2
-
     IF (redo_dlmm.or.(.not.allocated(dlmm)).or.(size(dlmm,1)/=lmax*(lmax+2)+1)) THEN
        CALL get_dlmm(lmax,b)
        ! redo_dlmm=.TRUE.        To return diagnostics, intent should be inout
     ENDIF
-    
+
+!    write(0,*)'Writing out dlmm'
+!    do m=0,2
+!       do mp=-2,2
+!          write(0,*) m,mp,dlmm(2+m,2+mp)
+!       enddo
+!    enddo
+
     ! Rotate the lm eigenvectors and simultaneously back transform in place 
     ! into ctpp()
 
@@ -79,9 +82,10 @@ contains
 
 !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(p,map,alm,indl,l,m,mp,sgn)
 
-    DO p = 0,npix-1
+    DO p = 0,n_evalues-1
 
 !$OMP CRITICAL
+!test       write(0,*)'---After rotation-------', p
        alm = DCMPLX(0.d0, 0.d0)
        DO l = 0, lmax
           indl = l**2 + l
@@ -95,6 +99,9 @@ contains
                 sgn = -sgn
              ENDDO
           ENDDO
+!test       if (l <= lmax  ) then
+!test          write(0,*) l, alm(1,l,0:l)
+!test       endif
        ENDDO
        IF(n_plm .eq. nside*(lmax+1)*(lmax+2) ) THEN
           CALL alm2map(nside, lmax, lmax, alm, map, plm(0:n_plm-1,1))
@@ -104,30 +111,30 @@ contains
        ctpp(:,p) = map(:)
 !$OMP END CRITICAL
 
+!test          write(0,*)'----------------------'
     ENDDO
 !$OMP END PARALLEL DO
     !DEALLOCATE(dlmm)
 
+!    stop
     RETURN
   END SUBROUTINE rotate_ctpp
 
-  SUBROUTINE getcplm(cplm, ctpp, nside, lmax, w8ring, kernel, cut_md)
+  SUBROUTINE getcplm(cplm, ctpp, nside, n_evalues, lmax, w8ring, kernel, cut_md)
+    ! The lm-transform of the eigenvector matrix.
     IMPLICIT NONE
     
-    COMPLEX(DP), DIMENSION(0: lmax * (lmax + 2), 0: 12 * nside**2 - 1), &
-                        intent(out) :: cplm
-    REAL(DP),    DIMENSION(0: 12 * nside**2 - 1, 0: 12 * nside**2 - 1), & 
-                        intent(in) :: ctpp
-    INTEGER,  intent(in)                              :: nside, lmax
+    COMPLEX(DP), DIMENSION(0:lmax*(lmax+2), 0:n_evalues-1), intent(out) :: cplm
+    REAL(DP),    DIMENSION(0:12*nside**2-1, 0:n_evalues-1), intent(in) :: ctpp
+    INTEGER,  intent(in)                              :: nside, lmax, n_evalues
     REAL(DP), intent(in), DIMENSION(1:2 * nside, 1:1) :: w8ring
     REAL(DP), intent(in), optional, DIMENSION(0:lmax) :: kernel
     LOGICAL,  intent(in), optional                    :: cut_md
 
-    COMPLEX(DP), DIMENSION(1:1, 0: lmax, 0:lmax) :: alm
-    REAL(DP),    DIMENSION(0:12 * nside**2 - 1)  :: map
-    INTEGER :: l, m, npix, p, indl, lmin
-    
-    npix = 12 * nside**2
+    COMPLEX(DP), DIMENSION(1:1, 0:lmax, 0:lmax) :: alm
+    REAL(DP),    DIMENSION(0:12*nside**2 - 1,1)   :: map
+    INTEGER :: l, m, p, indl, lmin
+    INTEGER, parameter                          :: iter_order=5
     
     ! Cut out the monopole and dipole if requested.
     IF (present(cut_md).and.cut_md) THEN
@@ -139,24 +146,23 @@ contains
     cplm = DCMPLX(0.d0,0.d0)
    
     ! Precompute plm's   (should check if it is faster)
-    !n_plm=nside*(lmax+1)*(lmax+2)
-    !if (.not.allocated(plm)) then
+    ! n_plm=nside*(lmax+1)*(lmax+2)
+    ! if (.not.allocated(plm)) then
     !   allocate(plm(0:n_plm-1,1))
-    !endif
+    ! endif
 
     !call plm_gen(nside,lmax,lmax,plm)
 
-    ! The lm-transform of the eigenvector matrix.
 
 !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(p,map,alm,indl,l,m)
-    DO p = 0, npix - 1
+    DO p = 0, n_evalues - 1
 
 !$OMP CRITICAL       
-       map(:) = ctpp(:,p)
+       map(:,1) = ctpp(:,p)
        IF (n_plm .ne. 0) THEN
-          CALL map2alm(nside,lmax,lmax,map,alm,(/0.0_dp, 0.0_dp/),w8ring,plm(0:n_plm-1,1))
+          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring,plm(0:n_plm-1,1:1))
        ELSE
-          CALL map2alm(nside,lmax,lmax,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
+          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
        ENDIF
 
        if (present(kernel) ) then             ! smooth
@@ -179,24 +185,22 @@ contains
     RETURN
   END SUBROUTINE getcplm
 
-  SUBROUTINE smooth_ctpp(ctpp, nside, lmax, w8ring, kernel, cut_md)
+  SUBROUTINE smooth_ctpp(ctpp, nside, n_evalues, lmax, w8ring, kernel, cut_md)
+    ! Smoothing of the eigenvectors. This routine needs a thought
     IMPLICIT NONE
     
-    REAL(DP), DIMENSION(0: 12 * nside**2 - 1, 0: 12 * nside**2 - 1), & 
-      intent(inout) :: ctpp
-    INTEGER,  intent(in) :: nside, lmax
+    REAL(DP), DIMENSION(0:12*nside**2-1, 0:n_evalues-1), intent(inout) :: ctpp
+    INTEGER,  intent(in) :: nside, lmax, n_evalues
     REAL(DP), intent(in), DIMENSION(1: 2 * nside, 1: 1)  :: w8ring
     REAL(DP), intent(in), DIMENSION(0: lmax), optional   :: kernel
     LOGICAL,  intent(in), optional :: cut_md
 
     COMPLEX(DP), DIMENSION(1: 1, 0: lmax, 0: lmax) :: alm
     REAL(DP),    DIMENSION(0: 12 * nside**2 - 1)   :: map
-    INTEGER :: l, m, npix,p
-    
-    npix = 12 * nside**2
+    INTEGER :: l, m, p
     
     ! The lm-transform of the eigenvector matrix.
-    DO p = 0, npix - 1
+    DO p = 0, n_evalues - 1
        map(:) = ctpp(:,p)
        IF(n_plm .ne. 0) THEN
           CALL map2alm(nside, lmax, lmax, map, alm, (/0.0_dp,0.0_dp/), w8ring, plm(0:n_plm-1,1))
