@@ -319,6 +319,8 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
   endif
 
+  call ampl_near(ampl_best)
+
 ! Optional output of cut-sky realization from CTpp
 !  Call make_fake_mode_map(ampl_best)
 

@@ -161,6 +161,29 @@ MODULE Topology_Lmarg_mod
        return
      END FUNCTION LnL_bestampl
 
+     SUBROUTINE ampl_near(ampl_best) 
+     use Topology_map_mod
+     ! Finds best amplitude and Log likelihood for globally given CTpp.
+     ! as well defines (Abest*CTpp+N)^-1 in CNTpp
+
+     real(DP), intent(inout) :: ampl_best
+     real(DP)                :: LnL_bestampl
+                              ! CTpp is global input
+                              ! CNTpp is global output
+     integer :: i
+     real(DP), parameter  :: err=1.d-3
+     real(DP)             :: ample, lnl
+     
+     ample=ampl_best-0.08
+     open(66,file='amplemin.out',status='unknown')
+     do i=0, 160
+        ample=ample+0.001
+        lnl=LnLikelihood(log(ample))
+        write(66,*) ample, lnl
+     enddo
+     close(66)
+     return
+     END SUBROUTINE ampl_near
 
      FUNCTION LnLikelihood(ampl_in)
      !Find -Ln(Likelihood) for global CTpp and set (CTpp+N)^-1
