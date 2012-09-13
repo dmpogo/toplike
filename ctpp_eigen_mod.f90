@@ -18,7 +18,6 @@ CONTAINS
    real(DP)                              :: evalue_min, eval_temp
 
       allocate(WORK(0:3*npix_fits-1))
-         write(0,*)'Im here', w8ring(1,1)
       if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
          call DSYEV('V','L',npix_fits,CTpp_evec,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
       else    ! General case, define eigenvectors orthonormal wrt weights
@@ -54,10 +53,11 @@ CONTAINS
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
-      evalue_min   = Top_Evalue_precision*SUM(CTpp_eval)
+!      evalue_min   = Top_Evalue_precision*SUM(CTpp_eval)
+      evalue_min   = Top_Evalue_precision*CTpp_eval(0)
       n_evalues    = count(CTpp_eval >= evalue_min)
 ! Test case
-!      n_evalues = 5
+      n_evalues = 1400
 ! ====================
       write(0,*)evalue_min, n_evalues
       return
@@ -92,8 +92,9 @@ CONTAINS
 
    subroutine NORMALIZE_EIGENVALUES(eval)  ! Normalizes CTpp \sum(eigenvalues)=4 Pi
    real(DP) :: norm
-   real(DP), DIMENSION(:) :: eval
-      norm = 16.0d0*atan(1.0d0)/SUM(eval)
+   real(DP), DIMENSION(0:) :: eval
+!      norm = 16.0d0*atan(1.0d0)/SUM(eval)
+      norm = 1.d0/eval(0)
       eval = eval*norm
 
       return

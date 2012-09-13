@@ -87,11 +87,11 @@ MODULE Topology_Lmarg_mod
        call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
        deallocate(CTpp_evec_temp)
 
-!test       open(101,file='reconstructedCTpp',form='unformatted')
-!test       write(101)npix_cut
-!test       write(101)CTpp
-!test       close(101)
-!test       stop
+       open(101,file='reconstructedCTpp',form='unformatted')
+       write(101)npix_cut
+       write(101)CTpp
+       close(101)
+       stop
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
        ampl_best=-1.0d0                !Ininial guess for the amplitude
@@ -130,24 +130,6 @@ MODULE Topology_Lmarg_mod
        call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
        write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
 
-!       write(0,*) CTpp_eval(0)
-!       do i=0,npix_fits-1
-!          write(0,*)CTpp_evec_rotated(i,0),CTpp_evec(i,0)
-!       enddo
-!       stop
-!       minnorm=2.d0
-!       maxnorm=0.d0
-!       write(0,*)'Eigenvector norms', n_evalues
-!       do i=0,n_evalues-1 
-!           norm=DDOT(npix_fits,CTpp_evec_rotated(:,i),1,CTpp_evec_rotated(:,i),1)
-!           norm1=DDOT(npix_fits,CTpp_evec(:,i),1,CTpp_evec(:,i),1)
-!           if (norm > maxnorm) maxnorm=norm
-!           if (norm < minnorm) minnorm=norm
-!           write(0,'(i4,1x,f6.4,1x,e14.8,1x,e14.8)'),i,norm1,norm,CTpp_eval(i)
-!       enddo
-!       stop
-!       write(0,*)'Eigenvector norms:', minnorm,maxnorm
-  
 ! From rotated CTpp_evec_rotated and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec_rotated is corrupted on output
        call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_rotated)
@@ -155,11 +137,11 @@ MODULE Topology_Lmarg_mod
        write(0,*)'and reconstructed'
 
 ! Test output and stop ==============
-!       open(101,file='rotatedCTpp',form='unformatted')
-!       write(101)npix_cut
-!       write(101)CTpp
-!       close(101)
-!       stop
+       open(101,file='rotatedCTpp',form='unformatted')
+       write(101)npix_cut
+       write(101)CTpp
+       close(101)
+       stop
 ! ===================================
 
 

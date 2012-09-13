@@ -22,14 +22,14 @@ H0=73.
 Ok=${1}
 
 do_rotate='.TRUE.'
-find_best_angles='.TRUE.'
+find_best_angles='.FALSE.'
 # If false find best angles will rotate to orientation below
-angles='0.0d0 0.0d0 0.0d0'
+angles='0.5d0 0.0d0 0.0d0'
 lmax=40
 
 # Cut is determined by the presence of mask_file
 mask_file=${data_basedir}'/kp0_8.2deg_thr0.5_16.fits'
-#mask_file=''
+mask_file=''
 
 
 add_noise=.TRUE.
@@ -45,7 +45,7 @@ noise_file=${data_basedir}'/coadd_noise_8.2deg_16.fits'
 #noise_file=''
 #epsil is always added to the diagonal of CTpp. May be used for regularization
 #It must be set to a value, put 0 (or negative) for no regularization
-epsil='0.0d0'
+epsil='1.0d-6'
 
 #make map visualization from CTpp
 make_map='.FALSE.'

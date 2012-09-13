@@ -7,7 +7,7 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
-  REAL(DP),    PARAMETER :: Top_Evalue_precision = 1.d-6
+  REAL(DP),    PARAMETER :: Top_Evalue_precision = 1.d-4
 
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
