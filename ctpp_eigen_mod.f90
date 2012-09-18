@@ -12,10 +12,9 @@ CONTAINS
    ! Full sky CTpp stored in CTpp_evec(npix_fits,npix_fits) -> 
    !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
-   integer(I4B)                          :: INFO,ipix,inverse_pix, nrings
+   integer(I4B)                          :: INFO,ipix
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP), allocatable, dimension(:,:) :: Bweights
-   real(DP)                              :: evalue_min, eval_temp
 
       allocate(WORK(0:3*npix_fits-1))
       if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
@@ -33,16 +32,25 @@ CONTAINS
       endif   
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
 
+      return
+   end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
+
+   subroutine SORT_AND_LIMIT_EIGENVALUES()
       ! Reverse order of eigenvalues, and do not forget eigenvectors
       ! Each column is an eigenvector, columns correspond to different evalues
-      do ipix = 0, npix_fits/2-1
-         inverse_pix = npix_fits-ipix-1
-         WORK(0:npix_fits-1)      = CTpp_evec(:,ipix)
-         CTpp_evec(:,ipix)        = CTpp_evec(:,inverse_pix)
-         CTpp_evec(:,inverse_pix) = WORK(0:npix_fits-1)
-         eval_temp              = CTpp_eval(ipix)
-         CTpp_eval(ipix)        = CTpp_eval(inverse_pix)
-         CTpp_eval(inverse_pix) = eval_temp
+   integer(I4B)                          :: INFO,ipix,iev,inverse_ev
+   real(DP), allocatable, dimension(:)   :: WORK
+   real(DP)                              :: evalue_min, eval_temp
+
+      allocate(WORK(0:npix_fits-1))
+      do iev = 0, npix_fits/2-1
+         inverse_ev = npix_fits-iev-1
+         WORK(0:npix_fits-1)     = CTpp_evec(:,iev)
+         CTpp_evec(:,iev)        = CTpp_evec(:,inverse_ev)
+         CTpp_evec(:,inverse_ev) = WORK(0:npix_fits-1)
+         eval_temp               = CTpp_eval(iev)
+         CTpp_eval(iev)          = CTpp_eval(inverse_ev)
+         CTpp_eval(inverse_ev)   = eval_temp
       enddo
       deallocate(WORK)
 
@@ -61,7 +69,7 @@ CONTAINS
 ! ====================
       write(0,*)evalue_min, n_evalues
       return
-   end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
+   end subroutine SORT_AND_LIMIT_EIGENVALUES
 
 
    subroutine RECONSTRUCT_FROM_EIGENVALUES()

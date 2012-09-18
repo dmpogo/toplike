@@ -226,6 +226,7 @@ PROGRAM Topology_Lmarg
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
+  CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 !-------------------------------------------------------------------
