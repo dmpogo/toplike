@@ -64,13 +64,11 @@ CONTAINS
    end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
 
 
-   subroutine RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_work)
-   ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec_work -> 
+   subroutine RECONSTRUCT_FROM_EIGENVALUES()
+   ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec -> 
    !        cut sky CTpp(npix_cut,npix_cut)
    ! Note: only significant eigenvalues (up to n_evalues) are used
-   ! Note: CTpp_evec_work is corrupted on return
-
-   real(DP), intent(inout), dimension(0:npix_fits-1,0:n_evalues-1) :: CTpp_evec_work
+   ! Note: CTpp_evec is corrupted on return
 
    integer :: ipix,jpix,ne,ic,jc
 
@@ -78,14 +76,14 @@ CONTAINS
    ! The rest of a column is garbage.
 
       do ne=0,n_evalues-1
-         CTpp_evec_work(0:npix_cut-1,ne)=pack(CTpp_evec_work(:,ne),map_mask)
-         CTpp_evec_work(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec_work(0:npix_cut-1,ne)
+         CTpp_evec(0:npix_cut-1,ne)=pack(CTpp_evec(:,ne),map_mask)
+         CTpp_evec(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec(0:npix_cut-1,ne)
       enddo
 
    ! Now n_evalues colums contain valid set of 
    ! normalized eigenvectors that are restricted to npix_cut length
 
-      call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec_work,npix_fits,CTpp_evec_work,npix_fits,0.0d0,CTpp,npix_cut)
+      call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec,npix_fits,CTpp_evec,npix_fits,0.0d0,CTpp,npix_cut)
 
       return
    end subroutine RECONSTRUCT_FROM_EIGENVALUES

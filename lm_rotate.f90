@@ -46,8 +46,8 @@ contains
   SUBROUTINE rotate_ctpp(ctpp, cplm, nside, n_evalues, lmax, a, b, g, redo_dlmm)
     IMPLICIT NONE
 
-    REAL(DP),    DIMENSION(0: 12*nside**2-1, 0:n_evalues-1), intent(out) :: ctpp
-    COMPLEX(DP), DIMENSION(0: lmax*(lmax+2), 0:n_evalues-1), intent(in) :: cplm
+    REAL(DP),   DIMENSION(0:12*nside**2-1,0:12*nside**2-1), intent(out) :: ctpp
+    COMPLEX(DP),DIMENSION(0: lmax*(lmax+2), 0:n_evalues-1), intent(in)  :: cplm
     INTEGER,          intent(in) :: nside,lmax,n_evalues
     REAL(DP),         intent(in) :: a, b, g
     LOGICAL,          intent(in) :: redo_dlmm

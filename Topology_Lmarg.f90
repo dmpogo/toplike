@@ -19,20 +19,19 @@ PROGRAM Topology_Lmarg
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
-  real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
+  real(DP), allocatable, dimension(:,:) :: pixels
   CHARACTER(LEN=120) :: nice_out_file
 
   integer(I4B) :: i
   real(DP)     :: sigma_ii
 
-!  character(len=100) :: infile
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
 !------------------------------------------------------------------------
 ! Read in files (even if not being used) 
    read(*,'(a)') nice_out_file
 
-! Wmap data files
+! data and noise file
    read(*,'(a)') map_signal_file
 ! Map modification files
    read(*,'(a)') map_mask_file
@@ -201,13 +200,6 @@ PROGRAM Topology_Lmarg
   read(102)CTpp_evec
   close(102)
 
-! Test hack - strictly enforce  identical diagonal, delete for real run 
-
-!  do i=0, npix_fits-1
-!     sigma_ii = sqrt(CTpp_evec(i,i))
-!     CTpp_evec(:,i) = CTpp_evec(:,i)/sigma_ii
-!     CTpp_evec(i,:) = CTpp_evec(i,:)/sigma_ii
-!  enddo
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
@@ -239,10 +231,7 @@ PROGRAM Topology_Lmarg
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   IF (make_map_only) THEN 
-     allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
-     CTpp_evec_temp=CTpp_evec
-     call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
-     deallocate(CTpp_evec_temp)
+     call RECONSTRUCT_FROM_EIGENVALUES()
      ampl_best= 1.0d0
      GO TO 991
   ENDIF
