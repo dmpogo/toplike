@@ -11,6 +11,7 @@ PROGRAM Topology_Lmarg
   USE Topology_map_mod
   USE Topology_Lmarg_mod
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
+  USE beams
   USE lm_rotate, ONLY : getcplm
   USE PIX_TOOLS
   IMPLICIT NONE
@@ -22,26 +23,23 @@ PROGRAM Topology_Lmarg
   real(DP), allocatable, dimension(:,:) :: pixels
   CHARACTER(LEN=120) :: nice_out_file
 
-  integer(I4B) :: i
-  real(DP)     :: sigma_ii
-
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
 !------------------------------------------------------------------------
 ! Read in files (even if not being used) 
-   read(*,'(a)') nice_out_file
+  read(*,'(a)') nice_out_file
 
 ! data and noise file
-   read(*,'(a)') map_signal_file
+  read(*,'(a)') map_signal_file
 ! Map modification files
-   read(*,'(a)') map_mask_file
-   read(*,'(a)') beam_file
+  read(*,'(a)') map_mask_file
+  read(*,'(a)') beam_file
 ! Ring Weights file
-   read(*,'(a)') w8_file
+  read(*,'(a)') w8_file
 ! CTpp file
-   read(*,'(a)') infile
+  read(*,'(a)') infile
 ! Makefake map output file
-   read(*,'(a)') fake_file
+  read(*,'(a)') fake_file
 
   read(*,*) output_file
 
@@ -56,6 +54,9 @@ PROGRAM Topology_Lmarg
   read(*,*) add_map_noise
   read(*,*) iseed
   read(*,*) make_map_only
+
+  read(*,*) do_smooth
+  read(*,*) beam_fwhm
 
   read(*,*) do_rotate
   read(*,*) alpha,beta,gamma
@@ -204,11 +205,12 @@ PROGRAM Topology_Lmarg
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
 ! signal and noise are also smoothed which must coincide with smoothing
-! of CTpp that is read in.  Calling shell script should check for that.
+! of CTpp. Calling shell script should check for that.
 !
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
+  CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 
@@ -217,13 +219,17 @@ PROGRAM Topology_Lmarg
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
 !                  pixel-pixel correlations in eigenvector decomposition
-!     CTpp_cplm  - lm decomposition of CTpp_evec truncated to significant evalues
+!     CTpp_cplm  - lm decomposition of CTpp_evec truncated to largest evalues
 !     CTpp       - Cut sky pixel-pixel correlation for given rotation, norm ampl
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
 
   allocate(CTpp_eval(0:npix_fits-1))
   allocate(CTpp(0:npix_cut-1,0:npix_cut-1))
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
+
+! Add experimental beam and pixel window preset Gaussian one and smooth CTpp
+  CALL collect_beams(Wl,lmax,beamfile=beamfile,nside=nside,reset=.false.)
+  CALL smooth_ctpp_lm(CTpp_evec,lmax,Wlin=Wl)
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()

@@ -16,12 +16,13 @@ MODULE TOPOLOGY_TYPES
 
 ! Global arrays to hold different matrices
 ! Persistent are CTpp_eval and CTpp_cplm
-! Variable are CTpp, CNTpp and CTpp_evec
+! Intermittent are CTpp, CNTpp and CTpp_evec
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp, CNTpp
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp_evec
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: CTpp_eval
   COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
 
+  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: Wl
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: w8ring, w8pix
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
@@ -30,7 +31,7 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(len=255)  :: infile
   CHARACTER(len=255)  :: fake_file
 
-  REAL(DP) :: epsil, Ok, OmegaL, H0
+  REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm
   !REAL(DP) :: epsil, condition_num
   INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
   INTEGER  :: n_evalues
