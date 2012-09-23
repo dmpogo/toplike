@@ -11,7 +11,7 @@ PROGRAM Topology_Lmarg
   USE Topology_map_mod
   USE Topology_Lmarg_mod
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
-  USE beams
+  USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate, ONLY : getcplm
   USE PIX_TOOLS
   IMPLICIT NONE
@@ -88,15 +88,6 @@ PROGRAM Topology_Lmarg
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
-  ENDIF
-
-  INQUIRE(file=TRIM(beam_file),exist=found)
-  IF (found) THEN
-     do_smooth = .TRUE.
-     WRITE(0,*) 'Smoothing map with', TRIM(beam_file)
-  ELSE
-     do_smooth = .FALSE.
-     WRITE(0,*) 'Not smoothing map'
   ENDIF
 
   IF (add_noise) THEN
@@ -204,13 +195,18 @@ PROGRAM Topology_Lmarg
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
-! signal and noise are also smoothed which must coincide with smoothing
+! signal and noise are smoothed which must coincide with smoothing
 ! of CTpp. Calling shell script should check for that.
 !
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
-  CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+  allocate ( Wl(0:lmax,1:1) )
+  if ( do_smooth ) then
+     CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+  else
+     CALL collect_beams(Wl,lmax,reset=.true.)
+  endif
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 
@@ -227,9 +223,9 @@ PROGRAM Topology_Lmarg
   allocate(CTpp(0:npix_cut-1,0:npix_cut-1))
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 
-! Add experimental beam and pixel window preset Gaussian one and smooth CTpp
-  CALL collect_beams(Wl,lmax,beamfile=beamfile,nside=nside,reset=.false.)
-  CALL smooth_ctpp_lm(CTpp_evec,lmax,Wlin=Wl)
+! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
+  CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
+  CALL smooth_ctpp_lm(CTpp_evec,lmax,window=Wl)
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()

@@ -84,7 +84,7 @@ else
    noise='_cnonoise'
 fi
 
-suffixes=${space}_smoothed${G_fwhm}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
+suffixes=${space}${smooth}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
 
 #Use nice output file
 output_file='.TRUE.'
