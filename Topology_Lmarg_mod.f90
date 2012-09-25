@@ -87,12 +87,6 @@ MODULE Topology_Lmarg_mod
 ! Corrupts CTpp_evec at reconstruction stage - stash CTpp_evec if needed again
        call RECONSTRUCT_FROM_EIGENVALUES()
 
-       open(101,file='reconstructedCTpp',form='unformatted')
-       write(101)npix_cut
-       write(101)CTpp
-       close(101)
-       stop
-
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
        ampl_best=-1.0d0                !Ininial guess for the amplitude
        LnL_max=LnL_bestampl(ampl_best) !Found ampl_best
@@ -133,11 +127,11 @@ MODULE Topology_Lmarg_mod
        write(0,*)'and reconstructed'
 
 ! Test output and stop ==============
-       open(101,file='rotatedCTpp',form='unformatted')
-       write(101)npix_cut
-       write(101)CTpp
-       close(101)
-       stop
+!       open(101,file='rotatedCTpp',form='unformatted')
+!       write(101)npix_cut
+!       write(101)CTpp
+!       close(101)
+!       stop
 ! ===================================
 
 
