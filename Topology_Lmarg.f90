@@ -11,6 +11,7 @@ PROGRAM Topology_Lmarg
   USE Topology_map_mod
   USE Topology_Lmarg_mod
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
+  USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate, ONLY : getcplm
   USE PIX_TOOLS
   IMPLICIT NONE
@@ -19,30 +20,26 @@ PROGRAM Topology_Lmarg
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
-  real(DP), allocatable, dimension(:,:) :: pixels,CTpp_evec_temp
+  real(DP), allocatable, dimension(:,:) :: pixels
   CHARACTER(LEN=120) :: nice_out_file
 
-  integer(I4B) :: i
-  real(DP)     :: sigma_ii
-
-!  character(len=100) :: infile
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
 !------------------------------------------------------------------------
 ! Read in files (even if not being used) 
-   read(*,'(a)') nice_out_file
+  read(*,'(a)') nice_out_file
 
-! Wmap data files
-   read(*,'(a)') map_signal_file
+! data and noise file
+  read(*,'(a)') map_signal_file
 ! Map modification files
-   read(*,'(a)') map_mask_file
-   read(*,'(a)') beam_file
+  read(*,'(a)') map_mask_file
+  read(*,'(a)') beam_file
 ! Ring Weights file
-   read(*,'(a)') w8_file
+  read(*,'(a)') w8_file
 ! CTpp file
-   read(*,'(a)') infile
+  read(*,'(a)') infile
 ! Makefake map output file
-   read(*,'(a)') fake_file
+  read(*,'(a)') fake_file
 
   read(*,*) output_file
 
@@ -57,6 +54,9 @@ PROGRAM Topology_Lmarg
   read(*,*) add_map_noise
   read(*,*) iseed
   read(*,*) make_map_only
+
+  read(*,*) do_smooth
+  read(*,*) beam_fwhm
 
   read(*,*) do_rotate
   read(*,*) alpha,beta,gamma
@@ -88,15 +88,6 @@ PROGRAM Topology_Lmarg
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
-  ENDIF
-
-  INQUIRE(file=TRIM(beam_file),exist=found)
-  IF (found) THEN
-     do_smooth = .TRUE.
-     WRITE(0,*) 'Smoothing map with', TRIM(beam_file)
-  ELSE
-     do_smooth = .FALSE.
-     WRITE(0,*) 'Not smoothing map'
   ENDIF
 
   IF (add_noise) THEN
@@ -201,22 +192,21 @@ PROGRAM Topology_Lmarg
   read(102)CTpp_evec
   close(102)
 
-! Test hack - strictly enforce  identical diagonal, delete for real run 
-
-!  do i=0, npix_fits-1
-!     sigma_ii = sqrt(CTpp_evec(i,i))
-!     CTpp_evec(:,i) = CTpp_evec(:,i)/sigma_ii
-!     CTpp_evec(i,:) = CTpp_evec(i,:)/sigma_ii
-!  enddo
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
 !             
-! signal and noise are also smoothed which must coincide with smoothing
-! of CTpp that is read in.  Calling shell script should check for that.
+! signal and noise are smoothed which must coincide with smoothing
+! of CTpp. Calling shell script should check for that.
 !
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
+  allocate ( Wl(0:lmax,1:1) )
+  if ( do_smooth ) then
+     CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+  else
+     CALL collect_beams(Wl,lmax,reset=.true.)
+  endif
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 
@@ -225,24 +215,26 @@ PROGRAM Topology_Lmarg
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
 !                  pixel-pixel correlations in eigenvector decomposition
-!     CTpp_cplm  - lm decomposition of CTpp_evec truncated to significant evalues
+!     CTpp_cplm  - lm decomposition of CTpp_evec truncated to largest evalues
 !     CTpp       - Cut sky pixel-pixel correlation for given rotation, norm ampl
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
 
   allocate(CTpp_eval(0:npix_fits-1))
   allocate(CTpp(0:npix_cut-1,0:npix_cut-1))
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
+
+! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
+  CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
+  CALL smooth_ctpp_lm(CTpp_evec,lmax,window=Wl)
 ! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
+  CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   IF (make_map_only) THEN 
-     allocate(CTpp_evec_temp(0:npix_fits-1,0:npix_fits-1))
-     CTpp_evec_temp=CTpp_evec
-     call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
-     deallocate(CTpp_evec_temp)
+     call RECONSTRUCT_FROM_EIGENVALUES()
      ampl_best= 1.0d0
      GO TO 991
   ENDIF

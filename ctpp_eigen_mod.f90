@@ -12,13 +12,11 @@ CONTAINS
    ! Full sky CTpp stored in CTpp_evec(npix_fits,npix_fits) -> 
    !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
-   integer(I4B)                          :: INFO,ipix,inverse_pix, nrings
+   integer(I4B)                          :: INFO,ipix
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP), allocatable, dimension(:,:) :: Bweights
-   real(DP)                              :: evalue_min, eval_temp
 
       allocate(WORK(0:3*npix_fits-1))
-         write(0,*)'Im here', w8ring(1,1)
       if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
          call DSYEV('V','L',npix_fits,CTpp_evec,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
       else    ! General case, define eigenvectors orthonormal wrt weights
@@ -34,16 +32,25 @@ CONTAINS
       endif   
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
 
+      return
+   end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
+
+   subroutine SORT_AND_LIMIT_EIGENVALUES()
       ! Reverse order of eigenvalues, and do not forget eigenvectors
       ! Each column is an eigenvector, columns correspond to different evalues
-      do ipix = 0, npix_fits/2-1
-         inverse_pix = npix_fits-ipix-1
-         WORK(0:npix_fits-1)      = CTpp_evec(:,ipix)
-         CTpp_evec(:,ipix)        = CTpp_evec(:,inverse_pix)
-         CTpp_evec(:,inverse_pix) = WORK(0:npix_fits-1)
-         eval_temp              = CTpp_eval(ipix)
-         CTpp_eval(ipix)        = CTpp_eval(inverse_pix)
-         CTpp_eval(inverse_pix) = eval_temp
+   integer(I4B)                          :: INFO,ipix,iev,inverse_ev
+   real(DP), allocatable, dimension(:)   :: WORK
+   real(DP)                              :: evalue_min, eval_temp
+
+      allocate(WORK(0:npix_fits-1))
+      do iev = 0, npix_fits/2-1
+         inverse_ev = npix_fits-iev-1
+         WORK(0:npix_fits-1)     = CTpp_evec(:,iev)
+         CTpp_evec(:,iev)        = CTpp_evec(:,inverse_ev)
+         CTpp_evec(:,inverse_ev) = WORK(0:npix_fits-1)
+         eval_temp               = CTpp_eval(iev)
+         CTpp_eval(iev)          = CTpp_eval(inverse_ev)
+         CTpp_eval(inverse_ev)   = eval_temp
       enddo
       deallocate(WORK)
 
@@ -54,23 +61,25 @@ CONTAINS
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
-      evalue_min   = Top_Evalue_precision*SUM(CTpp_eval)
-      n_evalues    = count(CTpp_eval >= evalue_min)
+      if ( evalue_cut%STRATEGY == evalue_cut%CONDITIONING ) then 
+          evalue_min   = evalue_cut%condition_number*maxval(CTpp_eval)
+          n_evalues    = count(CTpp_eval >= evalue_min)
 ! Test case
-!      n_evalues = 5
+      else if ( evalue_cut%STRATEGY == evalue_cut%LCUT ) then
+          n_evalues = (evalue_cut%lmax + 1)**2 - 4
+          evalue_min = CTpp_eval(n_evalues-1)
+      endif
 ! ====================
       write(0,*)evalue_min, n_evalues
       return
-   end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
+   end subroutine SORT_AND_LIMIT_EIGENVALUES
 
 
-   subroutine RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_work)
-   ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec_work -> 
+   subroutine RECONSTRUCT_FROM_EIGENVALUES()
+   ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec -> 
    !        cut sky CTpp(npix_cut,npix_cut)
    ! Note: only significant eigenvalues (up to n_evalues) are used
-   ! Note: CTpp_evec_work is corrupted on return
-
-   real(DP), intent(inout), dimension(0:npix_fits-1,0:n_evalues-1) :: CTpp_evec_work
+   ! Note: CTpp_evec is corrupted on return
 
    integer :: ipix,jpix,ne,ic,jc
 
@@ -78,22 +87,23 @@ CONTAINS
    ! The rest of a column is garbage.
 
       do ne=0,n_evalues-1
-         CTpp_evec_work(0:npix_cut-1,ne)=pack(CTpp_evec_work(:,ne),map_mask)
-         CTpp_evec_work(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec_work(0:npix_cut-1,ne)
+         CTpp_evec(0:npix_cut-1,ne)=pack(CTpp_evec(:,ne),map_mask)
+         CTpp_evec(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec(0:npix_cut-1,ne)
       enddo
 
    ! Now n_evalues colums contain valid set of 
    ! normalized eigenvectors that are restricted to npix_cut length
 
-      call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec_work,npix_fits,CTpp_evec_work,npix_fits,0.0d0,CTpp,npix_cut)
+      call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec,npix_fits,CTpp_evec,npix_fits,0.0d0,CTpp,npix_cut)
 
       return
    end subroutine RECONSTRUCT_FROM_EIGENVALUES
 
    subroutine NORMALIZE_EIGENVALUES(eval)  ! Normalizes CTpp \sum(eigenvalues)=4 Pi
    real(DP) :: norm
-   real(DP), DIMENSION(:) :: eval
-      norm = 16.0d0*atan(1.0d0)/SUM(eval)
+   real(DP), DIMENSION(0:) :: eval
+!      norm = 16.0d0*atan(1.0d0)/SUM(eval)
+      norm = 1.d0/eval(0)
       eval = eval*norm
 
       return

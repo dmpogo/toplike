@@ -23,6 +23,8 @@ MODULE Topology_Lmarg_mod
 
      SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
      real(DP), intent(out) :: ampl_best,alpha,beta,gamma,LnL_max
+! Works on global CTpp_cplm and CTpp_eval, 
+! produces cut sky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude and angles
 
      integer(I4B)      :: iter,i
      real(DP)          :: tolerance=1.d-5
@@ -62,6 +64,9 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(in)    ::  alpha,beta,gamma
      real(DP), intent(out)   ::  ampl_best,LnL_max
 
+! Works on global CTpp_cplm and CTpp_eval, 
+! produces cutsky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude after rot
+
      real(DP), dimension(3)  ::  p
 
      ampl=-1.0d0
@@ -77,21 +82,10 @@ MODULE Topology_Lmarg_mod
      SUBROUTINE FIND_BEST_AMPLITUDE(ampl_best,LnL_max) 
      real(DP), intent(out)   :: ampl_best,LnL_max
 
-     real(DP), allocatable,dimension(:,:) :: CTpp_evec_temp
-
-! From global CTpp_evec and Ctpp_eval  reconstruct  Ctpp
-! Reconstruction corrupts CTpp_evec, so work on copy,
-! but for copy one needs only significan eigenvalues
-       allocate(CTpp_evec_temp(0:npix_fits-1,0:n_evalues-1))
-       CTpp_evec_temp=CTpp_evec(0:npix_fits-1,0:n_evalues-1)
-       call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_temp)
-       deallocate(CTpp_evec_temp)
-
-!test       open(101,file='reconstructedCTpp',form='unformatted')
-!test       write(101)npix_cut
-!test       write(101)CTpp
-!test       close(101)
-!test       stop
+! Works on global CTpp_evec and CTpp_eval
+! produces cut sky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude
+! Corrupts CTpp_evec at reconstruction stage - stash CTpp_evec if needed again
+       call RECONSTRUCT_FROM_EIGENVALUES()
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
        ampl_best=-1.0d0                !Ininial guess for the amplitude
@@ -120,38 +114,16 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(in), dimension(:) :: ang  ! Vector of (alpha,beta,gamma)
      real(DP)                           ::  LnLrotated_at_best_amplitude
 
-     real(DP), allocatable,dimension(:,:) :: CTpp_evec_rotated
      real(DP) :: DDOT, norm, norm1,  minnorm, maxnorm
      integer :: i
 
-! Rotate CTpp_evec (in CTpp_cplm form) into temporary CTpp_evec_rotated
-       allocate(CTpp_evec_rotated(0:npix_fits-1,0:n_evalues-1))
-!       write(0,*)CTpp_cplm(0:100,0)
-       call rotate_ctpp(CTpp_evec_rotated,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
+! Rotate CTpp_evec (in CTpp_cplm form) into CTpp_evec
+       call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
        write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
 
-!       write(0,*) CTpp_eval(0)
-!       do i=0,npix_fits-1
-!          write(0,*)CTpp_evec_rotated(i,0),CTpp_evec(i,0)
-!       enddo
-!       stop
-!       minnorm=2.d0
-!       maxnorm=0.d0
-!       write(0,*)'Eigenvector norms', n_evalues
-!       do i=0,n_evalues-1 
-!           norm=DDOT(npix_fits,CTpp_evec_rotated(:,i),1,CTpp_evec_rotated(:,i),1)
-!           norm1=DDOT(npix_fits,CTpp_evec(:,i),1,CTpp_evec(:,i),1)
-!           if (norm > maxnorm) maxnorm=norm
-!           if (norm < minnorm) minnorm=norm
-!           write(0,'(i4,1x,f6.4,1x,e14.8,1x,e14.8)'),i,norm1,norm,CTpp_eval(i)
-!       enddo
-!       stop
-!       write(0,*)'Eigenvector norms:', minnorm,maxnorm
-  
-! From rotated CTpp_evec_rotated and global Ctpp_eval reconstruct cut-sky Ctpp
-! CTpp_evec_rotated is corrupted on output
-       call RECONSTRUCT_FROM_EIGENVALUES(CTpp_evec_rotated)
-       deallocate(CTpp_evec_rotated)
+! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky Ctpp
+! CTpp_evec is corrupted on output
+       call RECONSTRUCT_FROM_EIGENVALUES()
        write(0,*)'and reconstructed'
 
 ! Test output and stop ==============
