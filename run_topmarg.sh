@@ -4,53 +4,60 @@
 ##########################################################################
 umask 0003
 
-signal_file='../Data/WMAP/coadd_cleanimap_16.fits'
-#signal_file='../Data/WMAP/coadd_map_8.2deg_16.fits'
-ring_weight_file='~/Packages/Healpix_2.15a/data/weight_ring_n00016.fits'
+space=I
+healpix_dir=${HEALPIX}
+data_basedir='../Data/WMAP'
+ctpp_basedir='../Output/Spherical-'${space}'/CTpp_theory'
+output_basedir='../Output/Spherical-'${space}
+extras=''
 
-space='Spherical'
+signal_file=${data_basedir}'/coadd_cleanimap_16.fits'
+#signal_file='../Data/WMAP/coadd_map_8.2deg_16.fits'
+ring_weight_file=${healpix_dir}'/Data/weight_ring_n00016.fits'
+
 nside=16
 nsh=10
 OmegaL=0.7
 H0=73.
 Ok=${1}
 
-do_rotate='.TRUE.'
-find_best_angles='.TRUE.'
+do_rotate='.FALSE.'
+find_best_angles='.FALSE.'
 # If false find best angles will rotate to orientation below
-angles='0.0d0 0.0d0 0.0d0'
+angles='0.5d0 0.0d0 0.0d0'
 lmax=40
 
 # Cut is determined by the presence of mask_file
-mask_file='../Data/WMAP/kp0_8.2deg_thr0.5_16.fits'
+mask_file=${data_basedir}'/kp0_8.2deg_thr0.5_16.fits'
 mask_file=''
 
+
+add_noise=.TRUE.
 #
 # If do_smooth=TRUE  and noise_file is set 
 # we smooth noise correlation before adding matrix to CTpp
 # If do_smooth=FALSE and noise_file is set 
 # the noise correlation matrix is added to CTpp "as is" 
 #                                   (presumably should be diagonal )
-do_smooth='.TRUE.'
-G_fwhm=492.0
-noise_file='../Data/WMAP/coadd_noise_8.2deg_16.fits'
+noise_file=${data_basedir}'/coadd_noise_8.2deg_16.fits'
+#noise_file=''
 #epsil is always added to the diagonal of CTpp. May be used for regularization
-epsil='1.0d-7'
+#It must be set to a value, put 0 (or negative) for no regularization
+epsil='1.0d-6'
+
+beam_file=''
+#G_fwhm='492.0'
+G_fwhm='0.0'
 
 #make map visualization from CTpp
 make_map='.FALSE.'
-#makes map only does not find max liklihood
+#makes map only does not find max likelihood
 make_map_only='.FALSE.'
 add_map_noise='.FALSE.'
 
 #if set to 0 will use system clock
 iseed=1
 
-nice_output='.TRUE.'
-
-#Use nice output file
-output_file='.TRUE.'
-nice_out_file='../Output/Likelihood/'${space}'/topmarge_smooth'${G_fwhm}'_nside'${nside}'_Ok'${1}'epsil'${epsil}'.out'
 ##########################################################################
 #--------------------Running script--------------------------------------#
 ##########################################################################
@@ -76,54 +83,32 @@ else
    noise='_cnonoise'
 fi
 
-map_out_file=../Output/CTpp_maps/${space}/map${mask}${smooth}_nside${nside}_Ok${1}${noise}.fits
-run_out_file=../Output/Likelihood/${space}/topmarge_fullrun${smooth}_nside${nside}_Ok${1}epsil${epsil}.out
+suffixes=${space}${smooth}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
 
-# Perform preprocessing if needed
-if [ "$do_smooth" == ".TRUE."  ]; then
-   beam_file='../Output/CTpp_theory/'${space}'/CTpp_beams/beam_array_gaussian'${G_fwhm}
-   CTpp='../Output/CTpp_theory/'${space}'/CTpp_smoothed/ctpp_smoothed'${G_fwhm}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
+#Use nice output file
+output_file='.TRUE.'
+nice_out_file=${output_basedir}/Likelihood/topmarg_${suffixes}.out
+# Debug output
+run_out_file=${output_basedir}/Likelihood/topmarg_fullrun_${suffixes}.out
+# Concise output
+short_out_file=${output_basedir}/Likelihood/topmarg_allOk_${suffixes}.out
+# Map output
+map_out_file=${output_basedir}/CTpp_maps/map${mask}${smooth}_nside${nside}_nsh${nsh}_Ok${1}${noise}${extras}.fits
 
-#Smooth Ctpp if not already smoothed
-   if [ ! -e "$CTpp" ]; then
-      echo "Smoothing CTpp"
-      if [ -e "$beam_file" ]; then
-         save_beam=0
-      else
-         save_beam=1
-      fi
-
-../Spherical/test_process << EOF
-../Output/CTpp_theory/${space}/CTpp/ctpp_Nside${nside}_nsh${nsh}_Ok$1
-${CTpp}
-0
-1
-${save_beam}
-${G_fwhm}
-${beam_file}
-EOF
-echo "Done smoothing CTpp"
-   fi
-
-   else
-      beam_file=''
-      CTpp='../Output/CTpp_theory/'${space}'/CTpp/ctpp_Nside'${nside}'_nsh'${nsh}'_Ok'${1}
-   fi
+# We want unsmoothed CTpp since smoothing is done in Topmarg
+CTpp=${ctpp_basedir}'/CTpp/ctpp_'${space}'_nside'${nside}'_nsh'${nsh}'_Ok'${1}${extras}
 
 #Main call, if statement to screen
 echo 'Starting Ok'${1}
-if [ "$2" == -screen ]; then
+if [ "$2" == --screen ]; then
 ./topmarg << EOF
 ${nice_out_file}
-Printed to screen
 ${signal_file}
-${noise_file}
 ${mask_file}
 ${beam_file}
 ${ring_weight_file}
 ${CTpp}
 ${map_out_file}
-
 ${output_file}
 
 ${nside}
@@ -136,27 +121,28 @@ ${make_map}
 ${add_map_noise}
 ${iseed}
 ${make_map_only}
-${nice_output}
+
+${G_fwhm}
+
+${lmax}
 
 ${do_rotate}
 ${angles}
 ${find_best_angles}
-${lmax}
+
+${add_noise}
 ${epsil}
 EOF
 
 else
-./topmarg 2>$run_out_file<< EOF
+./topmarg 2>$run_out_file >> $short_out_file << EOF
 ${nice_out_file}
-${run_out_file}
 ${signal_file}
-${noise_file}
 ${mask_file}
 ${beam_file}
 ${ring_weight_file}
 ${CTpp}
 ${map_out_file}
-
 ${output_file}
 
 ${nside}
@@ -169,12 +155,16 @@ ${make_map}
 ${add_map_noise}
 ${iseed}
 ${make_map_only}
-${nice_output}
+
+${G_fwhm}
+
+${lmax}
 
 ${do_rotate}
 ${angles}
 ${find_best_angles}
-${lmax}
+
+${add_noise}
 ${epsil}
 EOF
 fi
