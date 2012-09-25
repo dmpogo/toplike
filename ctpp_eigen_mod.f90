@@ -61,11 +61,14 @@ CONTAINS
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
-!      evalue_min   = Top_Evalue_precision*SUM(CTpp_eval)
-      evalue_min   = Top_Evalue_precision*CTpp_eval(0)
-      n_evalues    = count(CTpp_eval >= evalue_min)
+      if ( evalue_cut%STRATEGY == evalue_cut%CONDITIONING ) then 
+          evalue_min   = evalue_cut%condition_number*maxval(CTpp_eval)
+          n_evalues    = count(CTpp_eval >= evalue_min)
 ! Test case
-      n_evalues = 1400
+      else if ( evalue_cut%STRATEGY == evalue_cut%LCUT ) then
+          n_evalues = (evalue_cut%lmax + 1)**2 - 4
+          evalue_min = CTpp_eval(n_evalues-1)
+      endif
 ! ====================
       write(0,*)evalue_min, n_evalues
       return

@@ -6,8 +6,16 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: code = 'TOPLIKE'
   CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
+  TYPE TOP_EVALUE_CUT
+       INTEGER(I4B)    :: LCUT=0, CONDITIONING=1
+       INTEGER(I4B)    :: STRATEGY=0
+       INTEGER(I4B)    :: LMAX=35
+       REAL(DP)        :: CONDITION_NUMBER=1.d-4
+  END TYPE TOP_EVALUE_CUT
+
+  TYPE(TOP_EVALUE_CUT)   :: evalue_cut
+
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
-  REAL(DP),    PARAMETER :: Top_Evalue_precision = 1.d-4
 
 ! Data
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
