@@ -44,7 +44,7 @@ MODULE TOPOLOGY_TYPES
   INTEGER  :: n_evalues
 
   LOGICAL  :: do_mask, do_rotate, find_best_angles, add_noise
-  LOGICAL  :: do_smooth, do_expbeam
+  LOGICAL  :: do_Gsmooth, do_expsmooth
   LOGICAL  :: make_map, make_map_only, add_map_noise
   !LOGICAL  :: nice_output, SVD, First_time
 

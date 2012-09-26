@@ -34,7 +34,7 @@ CONTAINS
 ! calculate Hermitean square root of correlation matrix. Spoils
     CNTpp=CTpp*ampl
     IF ( add_map_noise ) THEN
-       IF (add_noise.and.do_smooth) THEN
+       IF (add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
           CNTpp=CNTpp+map_npp
        ELSE
           FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + map_npp(i,i)
@@ -255,7 +255,7 @@ CONTAINS
 
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))
-    IF (do_smooth) THEN
+    IF (do_Gsmooth.or.do_expsmooth) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
        ALLOCATE( wmap_signal(0:npix_fits-1,1:1) )
        wmap_signal(:,1:1) = wmap_data(:,1:1) ! unfortunate copy to go to DP
@@ -271,7 +271,7 @@ CONTAINS
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-    IF (add_noise.and.do_smooth) THEN
+    IF (add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
        call getclm(clm, lcount, wmap_noise, npix_fits, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, Wl(:,1), lmax)
        call getcpp(map_npp, npix_cut, clm, lcount, nside, mask=map_mask)
@@ -286,7 +286,7 @@ CONTAINS
     endif
 
     ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
-    if (add_noise.and.(.not.do_smooth) ) then
+    if (add_noise.and.(.not.(do_Gsmooth.or.do_expsmooth)) ) then
        diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
     endif
     DEALLOCATE(wmap_noise)

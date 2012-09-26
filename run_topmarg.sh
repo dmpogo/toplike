@@ -13,7 +13,7 @@ extras=''
 
 signal_file=${data_basedir}'/coadd_cleanimap_16.fits'
 #signal_file='../Data/WMAP/coadd_map_8.2deg_16.fits'
-ring_weight_file=${healpix_dir}'/Data/weight_ring_n00016.fits'
+ring_weight_file=${healpix_dir}'/data/weight_ring_n00016.fits'
 
 nside=16
 nsh=10
@@ -58,6 +58,8 @@ add_map_noise='.FALSE.'
 #if set to 0 will use system clock
 iseed=1
 
+do_nice_out_file='.TRUE.'
+
 ##########################################################################
 #--------------------Running script--------------------------------------#
 ##########################################################################
@@ -71,22 +73,21 @@ else
    mask="_kp0"
 fi
 
-if [ "$do_smooth" == ".TRUE." ]; then
-   smooth="_smoothed${G_fwhm}"
+if [ "G_fwhm" == "" ]; then
+   smooth=""
 else
-   smooth=''
+   smooth="_smoothed${G_fwhm}"
 fi
 
 if [ "$add_map_noise" == ".TRUE." ]; then
-   noise='_cnoise'
+   noise="_cnoise"
 else
-   noise='_cnonoise'
+   noise="_cnonoise"
 fi
 
 suffixes=${space}${smooth}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
 
 #Use nice output file
-output_file='.TRUE.'
 nice_out_file=${output_basedir}/Likelihood/topmarg_${suffixes}.out
 # Debug output
 run_out_file=${output_basedir}/Likelihood/topmarg_fullrun_${suffixes}.out

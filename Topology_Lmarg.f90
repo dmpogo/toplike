@@ -16,7 +16,7 @@ PROGRAM Topology_Lmarg
   USE PIX_TOOLS
   IMPLICIT NONE
 
-  LOGICAL :: found, output_file
+  LOGICAL :: found, do_nice_out_file
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
@@ -41,7 +41,7 @@ PROGRAM Topology_Lmarg
 ! Makefake map output file
   read(*,'(a)') fake_file
 
-  read(*,*) output_file
+  read(*,*) do_nice_out_file
 ! Read in parameters
   read(*,*) nside
   read(*,*) nsh
@@ -54,7 +54,6 @@ PROGRAM Topology_Lmarg
   read(*,*) iseed
   read(*,*) make_map_only
 
-!  read(*,*) do_smooth
   read(*,*) beam_fwhm
   
   read(*,*) lmax
@@ -69,9 +68,9 @@ PROGRAM Topology_Lmarg
 !======================================================================
 
   IF (beam_fwhm == 0.0) THEN
-     do_smooth=.FALSE.
+     do_Gsmooth=.FALSE.
   ELSE
-     do_smooth=.TRUE.
+     do_Gsmooth=.TRUE.
   ENDIF
 
   INQUIRE(file=TRIM(map_signal_file),exist=found)
@@ -80,7 +79,7 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Can not find file', TRIM(map_signal_file)
      STOP "No signal file"
   ENDIF
-  IF (do_smooth) THEN
+  IF (do_Gsmooth) THEN
      WRITE(0,*) 'Signal map smoothed by:'
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
   ENDIF
@@ -93,15 +92,15 @@ PROGRAM Topology_Lmarg
      STOP "No CTpp file"
   ENDIF
 
-  INQUIRE(file=TRIM(beam_file),exist=do_expbeam)
+  INQUIRE(file=TRIM(beam_file),exist=do_expsmooth)
   WRITE(0,*) 'CTpp smoothed by:'
   WRITE(0,*) '     - Pixle window:', nside 
-  IF (do_expbeam .and. do_smooth) THEN
+  IF (do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
      WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
-  ELSEIF (do_expbeam .and. .not.do_smooth) THEN
+  ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
      WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
-  ELSEIF (.not.do_expbeam .and. do_smooth) THEN
+  ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
   ENDIF
 
@@ -115,7 +114,7 @@ PROGRAM Topology_Lmarg
   ENDIF
 
   IF (add_noise) THEN
-     IF (do_smooth .or. do_expbeam) THEN
+     IF (do_Gsmooth .or. do_expsmooth) THEN
         WRITE(0,*) 'Using full smoothed noise matrix'
      ELSE
         WRITE(0,*) 'Using only diagonal noise'
@@ -136,13 +135,13 @@ PROGRAM Topology_Lmarg
      GO TO 990
   ENDIF
 
-  IF (output_file) THEN
+  IF (do_nice_out_file) THEN
      WRITE(0,*) 'Using nice out file'
   ELSE
      WRITE(0,*) 'Not using nice out file'
   ENDIF
 
-  IF(output_file) THEN
+  IF(do_nice_out_file) THEN
     OPEN(103,file=TRIM(nice_out_file),status='Unknown')
     WRITE(103,'(1Xa,a)') 'CTpp file:', TRIM(infile)
     WRITE(103,'(1Xa,a)') 'Signal file   :', TRIM(map_signal_file)
@@ -154,15 +153,15 @@ PROGRAM Topology_Lmarg
 
     WRITE(103,'(1Xa)') 'CTpp smoothed by:'
     WRITE(103,'(1Xa,I4)') '     - Pixle window:', nside 
-    IF (do_expbeam .and. do_smooth) THEN
+    IF (do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
        WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
-    ELSEIF (do_expbeam .and. .not.do_smooth) THEN
+    ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
        WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
-    ELSEIF (.not.do_expbeam .and. do_smooth) THEN
+    ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
     ENDIF
-    IF (do_smooth) THEN
+    IF (do_Gsmooth) THEN
        WRITE(103,'(1Xa)') 'Signal map smoothed by:'
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
     ENDIF
@@ -172,9 +171,8 @@ PROGRAM Topology_Lmarg
     ELSE
        WRITE(103,'(1Xa)') 'Not using a mask'
     ENDIF
- !NELSON FIX 
     IF (add_noise) THEN
-      IF (do_smooth .or. do_expbeam) THEN
+      IF (do_Gsmooth .or. do_expsmooth) THEN
          WRITE(103,'(1Xa)') 'Using full noise matrix'
       ELSE
          WRITE(103,'(1Xa)') 'Using only diagonal of noise matrix'
@@ -201,7 +199,7 @@ PROGRAM Topology_Lmarg
     IF(make_map) THEN
        WRITE(103,'(1Xa,1Xa)')'Making map    :', TRIM(fake_file)
        WRITE(103,'(1Xa,1XL1)')'add_map_noise :', add_map_noise
-!       WRITE(103,'(1Xa,1XL1)')'smooth_map    :', do_smooth
+       WRITE(103,'(1Xa,1XL1)')'smooth_map    :', do_Gsmooth
     ENDIF
   ENDIF
 990 CONTINUE
@@ -234,7 +232,7 @@ PROGRAM Topology_Lmarg
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
   allocate ( Wl(0:lmax,1:1) )
-  if (do_smooth) then
+  if (do_Gsmooth) then
      CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   else
      Wl = 1.0_dp
@@ -256,7 +254,7 @@ PROGRAM Topology_Lmarg
   allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
 
 ! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
-  if (do_expbeam) then
+  if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
   else
      CALL collect_beams(Wl,lmax,nside=nside,reset=.false.)
@@ -322,7 +320,7 @@ PROGRAM Topology_Lmarg
         alpha,beta,gamma
 
 ! Archive for storage in the nice commented file
-  if (output_file) then
+  if (do_nice_out_file) then
      WRITE(103,'(1Xa,I)') 'npix_cut      : ', npix_cut
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)

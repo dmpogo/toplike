@@ -191,7 +191,7 @@ MODULE Topology_Lmarg_mod
 !   Noise is either smoothed and fills the full matrix, or just a diagonal.
 !   Diagonal may also contain epsilon regularization so it is added even
 !   when add_noise=.FALSE.
-       IF ( add_noise.and.do_smooth ) THEN
+       IF ( add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
           CNTpp=CNTpp+map_npp
        ELSE
           FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
@@ -248,7 +248,7 @@ MODULE Topology_Lmarg_mod
              allocate(eigen(npix_cut),WORK(3*npix_cut))
          ! Resets the corrupted CNTpp matrix to get the real eigen values
              CNTpp=CTpp*exp(ampl_in)
-             IF (add_noise.and.do_smooth) THEN
+             IF (add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
                 CNTpp=CNTpp+map_npp
              ELSE
                 FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
