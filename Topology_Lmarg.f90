@@ -237,7 +237,7 @@ PROGRAM Topology_Lmarg
   if (do_smooth) then
      CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   else
-     Wl = 1.0_dp
+     CALL collect_beams(Wl,lmax,reset=.true.)
   endif
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
