@@ -119,7 +119,7 @@ MODULE Topology_Lmarg_mod
 
 ! Rotate CTpp_evec (in CTpp_cplm form) into CTpp_evec
        call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
-       write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
+       write(0,'(a,3(1x,f10.7))')'I have rotated to', ang(1), ang(2), ang(3)
 
 ! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec is corrupted on output
@@ -349,7 +349,7 @@ MODULE Topology_Lmarg_mod
 
      integer :: i 
         p(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp, 0.1_dp /)    ! alphas
-        p(:,2) = (/ 0.0_dp, 0.0_dp, 0.1_dp, 0.0_dp /)    ! betas
+        p(:,2) = (/ 0.0_dp, 0.0_dp, 0.1_dp, 0.1_dp /)    ! betas
         p(:,3) = (/ 0.0_dp, 0.1_dp, 0.0_dp, 0.0_dp /)    ! gammas
 
         do i=1,4
