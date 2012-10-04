@@ -11,6 +11,9 @@ MODULE nr_minimization
        MODULE PROCEDURE mnbrak_r, mnbrak_d
    END INTERFACE
 
+   PRIVATE
+   PUBLIC amoeba, brent, mnbrak
+
 CONTAINS
 	SUBROUTINE amoeba_r(p,y,ftol,func,iter)
 	USE nrtype; USE nrutil, ONLY : assert_eq,imaxloc,iminloc,nrerror,swap
