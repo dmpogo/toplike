@@ -17,7 +17,7 @@ PROGRAM Topology_Lmarg
 
   LOGICAL :: found, do_nice_out_file
  
-  real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, alpha, beta, gamma
+  real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, ang(3)
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
   CHARACTER(LEN=120) :: nice_out_file
@@ -58,7 +58,7 @@ PROGRAM Topology_Lmarg
   read(*,*) lmax
 
   read(*,*) do_rotate
-  read(*,*) alpha,beta,gamma
+  read(*,*) ang(1),ang(2),ang(3)
   read(*,*) find_best_angles
 
   read(*,*) add_noise
@@ -191,7 +191,7 @@ PROGRAM Topology_Lmarg
        IF(find_best_angles) THEN
           WRITE(103,'(1Xa,1XL1)')'find_best_angles :', find_best_angles
        ELSE
-          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',alpha,beta,gamma
+          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
        ENDIF
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
@@ -279,9 +279,9 @@ PROGRAM Topology_Lmarg
      call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
      if (find_best_angles) then
-        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
+        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
      else
-        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,alpha,beta,gamma,LnL_max)
+        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
      endif
   else
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
@@ -309,14 +309,13 @@ PROGRAM Topology_Lmarg
   WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
-  WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', alpha,beta,gamma
+  WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', ang
  
 ! Final one line answer to the standard output
   WRITE(*,'(f7.4,6(1x,d15.7),3(1x,d12.4))')                        &
         Ok,                                                  &
         LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
-        ampl_best,ampl_var,ampl_curv,                        &
-        alpha,beta,gamma
+        ampl_best,ampl_var,ampl_curv,ang
 
 ! Archive for storage in the nice commented file
   if (do_nice_out_file) then
