@@ -3,10 +3,9 @@ PROGRAM Topology_Lmarg
   !wrt the WMAP data with various cuts.
   !Also makes realizations of the topology
   !
-  !Preliminary version          Carlo 14Jun04 CITA
-  !Further development          Dmitri June-Aug 2004 UofA
+  !Preliminary version          CC 14Jun04 CITA
+  !Further development          DP June-Aug 2004 UofA
   !
-!  USE nrtype
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
@@ -235,7 +234,7 @@ PROGRAM Topology_Lmarg
   if (do_Gsmooth) then
      CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   else
-     Wl = 1.0_dp
+     CALL collect_beams(Wl,lmax,reset=.true.)
   endif
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'

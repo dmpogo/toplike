@@ -1,5 +1,5 @@
 MODULE Topology_map_mod
-  USE TOPOLOGY_TYPES
+  USE Topology_types
   USE FITSTOOLS
   USE HEAD_FITS
   USE PIX_TOOLS

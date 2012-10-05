@@ -52,13 +52,24 @@ OBJ    	= nml_mod.o Topology_types.o Topology_map_mod.o nr_minimization.o lm_rot
 
 default: topmarg
 
-%.o:%.f90
-	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
-
 topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
+Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o Topology_map_mod.o
+Topology_Lmarg_mod.o  : Topology_types.o ctpp_eigen_mod.o nr_minimization.o
+Topology_map_mod.o    : Topology_types.o 
+ctpp_eigen_mod.o      : Topology_types.o nml_mod.o lm_rotate.o
+
+%.o    : %.f90
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
+
+# ----------------------- Clean up ----------------------------
+ 
+.PHONY : tidy clean cleanall
 tidy:
 	-rm -f $(OBJ)
 clean: tidy
 	-rm -f topmarg
+cleanall: clean
+	/bin/rm -f $(MODULEDIR1)/[!n]*.mod
+

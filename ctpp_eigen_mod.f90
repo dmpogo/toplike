@@ -61,14 +61,16 @@ CONTAINS
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
-      if ( evalue_cut%STRATEGY == evalue_cut%CONDITIONING ) then 
-          evalue_min   = evalue_cut%condition_number*maxval(CTpp_eval)
-          n_evalues    = count(CTpp_eval >= evalue_min)
-      else if ( evalue_cut%STRATEGY == evalue_cut%LCUT ) then
-          n_evalues = (evalue_cut%lmax + 1)**2 - 4
-          evalue_min = CTpp_eval(n_evalues-1)
+      if ( evalue_cut%STRATEGY == evalue_cut%NONE ) then
+         n_evalues = npix_fits
       else
-          n_evalues = npix_fits
+         if ( evalue_cut%STRATEGY == evalue_cut%CONDITIONING ) then 
+            evalue_min   = evalue_cut%condition_number*maxval(CTpp_eval)
+            n_evalues    = count(CTpp_eval >= evalue_min)
+         else if ( evalue_cut%STRATEGY == evalue_cut%LCUT ) then
+            n_evalues = (evalue_cut%lmax + 1)**2 - 4
+            evalue_min = CTpp_eval(n_evalues-1)
+         endif
       endif
 ! ====================
       write(0,*)evalue_min, n_evalues

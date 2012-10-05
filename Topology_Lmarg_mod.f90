@@ -41,7 +41,7 @@ MODULE Topology_Lmarg_mod
 
         write(0,*)'#####################################################'
         do i=1,4
-           write(0,'(a9,3(f7.5,1x),a9,f12.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
+           write(0,'(a9,3(f8.5,1x),a9,f12.4)')' Angles: ',p(i,:),' LnL is: ',y(i)
         enddo
         write(0,*)'#####################################################'
 
@@ -119,7 +119,7 @@ MODULE Topology_Lmarg_mod
 
 ! Rotate CTpp_evec (in CTpp_cplm form) into CTpp_evec
        call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
-       write(0,*)'I have rotated to', ang(1), ang(2), ang(3)
+       write(0,'(a,3(1x,f10.7))')'I have rotated to', ang(1), ang(2), ang(3)
 
 ! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky Ctpp
 ! CTpp_evec is corrupted on output
@@ -138,7 +138,7 @@ MODULE Topology_Lmarg_mod
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
        LnLrotated_at_best_amplitude=LnL_bestampl(ampl)
-       write(0,'(a5,f8.4,a9,3(f7.5,1x),a9,f12.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
+       write(0,'(a5,f8.4,a9,3(f8.5,1x),a9,f12.4)')'Ampl ',ampl,' Angles: ',ang,' LnL is: ',LnLrotated_at_best_amplitude
        return
      END FUNCTION LnLrotated_at_best_amplitude
   
@@ -347,10 +347,11 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(out), dimension(:,:) :: p
      real(DP), intent(out), dimension(:)   :: y
 
-     integer :: i 
-        p(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp, 0.1_dp /)    ! alphas
-        p(:,2) = (/ 0.0_dp, 0.0_dp, 0.1_dp, 0.0_dp /)    ! betas
-        p(:,3) = (/ 0.0_dp, 0.1_dp, 0.0_dp, 0.0_dp /)    ! gammas
+     real(DP) :: st_ang=0.5_dp
+     integer  :: i 
+        p(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp, HALFPI /)    ! alphas
+        p(:,2) = (/ 0.0_dp, 0.0_dp, st_ang, st_ang /)    ! betas
+        p(:,3) = (/ 0.0_dp, st_ang, 0.0_dp, -HALFPI/)    ! gammas
 
         do i=1,4
            y(i)=LnLrotated_at_best_amplitude(p(i,:))
