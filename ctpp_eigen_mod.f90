@@ -71,17 +71,7 @@ CONTAINS
 ! ====================
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
-      if ( evalue_cut%STRATEGY == evalue_cut%NONE ) then
-         n_evalues = npix_fits
-      else
-         if ( evalue_cut%STRATEGY == evalue_cut%CONDITIONING ) then 
-            evalue_min   = evalue_cut%condition_number*maxval(CTpp_eval)
-            n_evalues    = count(CTpp_eval >= evalue_min)
-         else if ( evalue_cut%STRATEGY == evalue_cut%LCUT ) then
-            n_evalues = (evalue_cut%lmax + 1)**2 - 4
-            evalue_min = CTpp_eval(n_evalues-1)
-         endif
-      endif
+      call SET_N_EVALUES(CTpp_eval,evalue_cut_fsky,n_evalues,evalue_min)
 ! ====================
       write(0,*)evalue_min, n_evalues
       return
@@ -126,5 +116,80 @@ CONTAINS
 
       return
    end subroutine NORMALIZE_EIGENVALUES
+
+   subroutine INVERT_CTPP_SVD()
+   ! Invert cut-sky CTpp using SVD decomposition
+
+   real(DP), allocatable, dimension(:)   :: D, WORK
+   real(DP), allocatable, dimension(:,:) :: U,VT
+   integer(I4B)                          :: INFO, i, n_evalues_csky
+
+      allocate(D(0:npix_cut-1))
+      allocate(WORK(0:5*npix_cut))
+      allocate(VT(0:npix_cut-1,0:npix_cut-1))
+      allocate(U(0:npix_cut-1,0:npix_cut-1))
+
+      call DGESVD('A','A',npix_cut,npix_cut,CTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
+      if(INFO/=0) then
+         write(0,*) "DGESVD info=", INFO
+         stop 'Error SVD DGESVD'
+      endif
+
+      call SET_N_EVALUES(D,evalue_cut_csky,n_evalues_csky)
+      write(0,*) n_evalues_csky
+
+      logdetCTpp = 0.0d0
+      do i = 0, n_evalues_csky-1
+         VT(i,:) = VT(i,:)/D(i)
+         logdetCTpp=logdetCTpp+LOG(D(i))
+!         write(0,*) i,D(i)
+      enddo
+      VT(n_evalues_csky:npix_cut-1,:) = 0.0d0
+
+      call DGEMM('T','T',npix_cut,npix_cut,n_evalues_csky,1.0d0,VT,npix_cut,&
+                   & U,npix_cut,0.0d0,CTpp,npix_cut)
+      deallocate(WORK,VT,U)
+
+      return
+   end subroutine INVERT_CTPP_SVD
+
+   subroutine SET_N_EVALUES(D,evalue_cut_in,n_evalues,evalue_min_out)
+   REAL(DP),         intent(inout), dimension(0:) :: D
+   TYPE(EVALUE_CUT), intent(in)                   :: evalue_cut_in
+   INTEGER(I4B),     intent(out)                  :: n_evalues
+   REAL(DP),         intent(out), optional        :: evalue_min_out
+
+   REAL(DP)          :: evalue_min
+   INTEGER(I4B)      :: npix
+
+      npix=size(D,1)
+      if ( D(0) < D(npix-1) ) then
+         stop 'Eigenvalue array must be sorted in decreasing order'
+      endif
+
+      if ( evalue_cut_in%STRATEGY == S_NONE ) then
+         n_evalues = npix
+      else
+         if ( evalue_cut_in%STRATEGY == S_CONDITIONING ) then 
+            evalue_min   = evalue_cut_in%condition_number*D(0)
+            n_evalues    = count(D >= evalue_min)
+         else if ( evalue_cut_in%STRATEGY == S_LCUT ) then
+            n_evalues = (evalue_cut_in%lmax + 1)**2 - 4
+            evalue_min = D(n_evalues-1)
+         else if ( evalue_cut_in%STRATEGY == S_NCUT ) then
+            n_evalues = evalue_cut_in%nmax
+            evalue_min = D(n_evalues-1)
+         endif
+         if ( evalue_cut_in%SET_BAD_MODES_HIGH ) then
+            D(n_evalues:npix-1)=evalue_cut_in%BAD_MODES_NOISE
+            n_evalues = npix
+         endif
+      endif
+
+      if (n_evalues > npix) n_evalues=npix
+      if (present(evalue_min_out)) evalue_min_out=evalue_min
+        
+      return
+   end subroutine SET_N_EVALUES
 
 END MODULE ctpp_eigen_mod

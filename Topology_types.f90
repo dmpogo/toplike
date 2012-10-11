@@ -6,14 +6,19 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: code = 'TOPLIKE'
   CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
-  TYPE TOP_EVALUE_CUT
-       INTEGER(I4B)    :: NONE=0, LCUT=1, CONDITIONING=2
-       INTEGER(I4B)    :: STRATEGY=1
-       INTEGER(I4B)    :: LMAX=35
+! Control
+  INTEGER(I1B), PARAMETER :: S_NONE=0, S_LCUT=1, S_NCUT=2, S_CONDITIONING=3
+  TYPE EVALUE_CUT
+       INTEGER(I1B)    :: STRATEGY=S_NONE
+       INTEGER(I4B)    :: LMAX=40
+       INTEGER(I4B)    :: NMAX=1200
        REAL(DP)        :: CONDITION_NUMBER=1.d-4
-  END TYPE TOP_EVALUE_CUT
+       LOGICAL         :: SET_BAD_MODES_HIGH=.false.
+       REAL(DP)        :: BAD_MODES_NOISE=1.d4
+  END TYPE EVALUE_CUT
 
-  TYPE(TOP_EVALUE_CUT)   :: evalue_cut
+  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
+  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
 
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
@@ -44,8 +49,7 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(len=255)  :: infile
   CHARACTER(len=255)  :: fake_file
 
-  REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm
-  !REAL(DP) :: epsil, condition_num
+  REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
   INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
   INTEGER  :: n_evalues
 
