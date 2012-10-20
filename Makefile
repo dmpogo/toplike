@@ -45,7 +45,7 @@ LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio  -lfftw
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 
-OBJ    	= nml_mod.o Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
+OBJ    	= Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 #nml_mod.o Topology_types.o Topology_map_mod.o Topology_map_mod_nel.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 
 # ------------------------- Rules ----------------------------
@@ -58,7 +58,7 @@ topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o Topology_map_mod.o
 Topology_Lmarg_mod.o  : Topology_types.o ctpp_eigen_mod.o nr_minimization.o
 Topology_map_mod.o    : Topology_types.o 
-ctpp_eigen_mod.o      : Topology_types.o nml_mod.o lm_rotate.o
+ctpp_eigen_mod.o      : Topology_types.o
 
 %.o    : %.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
