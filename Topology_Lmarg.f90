@@ -217,13 +217,14 @@ PROGRAM Topology_Lmarg
      write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
      stop
   endif
-  allocate(CTpp_evec(0:npix_fits-1,0:npix_fits-1))
-  read(102)CTpp_evec
+  allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
+  CTpp_full => FullSkyWorkSpace
+  read(102)CTpp_full
   close(102)
 
 !-------------------------------------------------------------------
 ! Read data:  signal map map_signal, noise  map_npp and mask
-!             
+!      sets:  npix_cut       
 ! signal and noise are smoothed which must coincide with smoothing
 ! of CTpp. Calling shell script should check for that.
 !
@@ -259,8 +260,9 @@ PROGRAM Topology_Lmarg
      CALL collect_beams(Wl,lmax,nside=nside,reset=.false.)
   endif
 
-  CALL smooth_ctpp_lm(CTpp_evec,lmax,window=Wl)
-! Decompose CTpp(_evec) into eigenfuctions stored in CTpp_evec and CTpp_eval
+  CALL smooth_ctpp_lm(CTpp_full,lmax,window=Wl)
+! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval
+! CTpp_full is destroyed and disassociated
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)

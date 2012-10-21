@@ -5,7 +5,6 @@ MODULE Topology_Lmarg_mod
   !
   USE Topology_types
   USE ctpp_eigen_mod
-  !USE Topology_map_mod_nel
   USE nr_minimization
   IMPLICIT NONE
 
@@ -68,11 +67,11 @@ MODULE Topology_Lmarg_mod
      real(DP), dimension(3)  ::  u
      logical                 ::  ifsuccess
 
-     ampl=-1.0d0
-     call angles_to_projectedS3(ang,u,ifsuccess)
+       ampl=-1.0d0
+       call angles_to_projectedS3(ang,u,ifsuccess)
 
-     LnL_max=LnLrotated_at_best_amplitude(u)
-     ampl_best=ampl
+       LnL_max=LnLrotated_at_best_amplitude(u)
+       ampl_best=ampl
 
      END SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE
 
@@ -82,6 +81,7 @@ MODULE Topology_Lmarg_mod
 ! Works on global CTpp_evec and CTpp_eval
 ! produces cut sky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude
 ! Corrupts CTpp_evec at reconstruction stage - stash CTpp_evec if needed again
+
        call RECONSTRUCT_FROM_EIGENVALUES()
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
@@ -111,8 +111,7 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(in), dimension(:) :: u ! Vector on S3 projection
      real(DP)                           :: LnLrotated_at_best_amplitude
 
-     real(DP) :: ang(3)
-     real(DP) :: DDOT, norm, norm1,  minnorm, maxnorm
+     real(DP) :: ang(3),  DDOT
      logical  :: ifsuccess
 
 ! Convert projected coordinates into Euler angles and ensure the valid range
@@ -124,12 +123,14 @@ MODULE Topology_Lmarg_mod
           return
        endif
           
-! Rotate CTpp_evec (in CTpp_cplm form) into CTpp_evec
+! Rotate full sky eigevectors in CTpp_cplm form into current CTpp_evec
+       CTpp_evec => FullSkyWorkSpace
        call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
        write(0,'(a,3(1x,f10.7))') 'a',ang
 
-! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky Ctpp
-! CTpp_evec is corrupted on output
+! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky CTpp 
+! then project CTpp onto mode basis
+! CTpp_evec is deassociated on output
        call RECONSTRUCT_FROM_EIGENVALUES()
        write(0,*)'and reconstructed'
 

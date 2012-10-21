@@ -14,9 +14,13 @@ CONTAINS
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP), allocatable, dimension(:,:) :: Bweights
 
+      if ( .not.associated(CTpp_full,FullSkyWorkSpace) ) then
+         stop 'Full sky CTpp matrix has not been set in FullSkyWorkSpace'
+      endif
+         
       allocate(WORK(0:3*npix_fits-1))
       if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
-         call DSYEV('V','L',npix_fits,CTpp_evec,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
+         call DSYEV('V','L',npix_fits,CTpp_full,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
       else    ! General case, define eigenvectors orthonormal wrt weights
 
          ! Set diagonal matrix of weights Bweights
@@ -25,10 +29,14 @@ CONTAINS
          forall(ipix=0:npix_fits-1) Bweights(ipix,ipix)=w8pix(ipix,1)
 
          ! Solve generalized problem CTpp*B*evec = eval*evec
-         call DSYGV(2,'V','L',npix_fits,CTpp_evec,npix_fits,Bweights,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
+         call DSYGV(2,'V','L',npix_fits,CTpp_full,npix_fits,Bweights,npix_fits,CTpp_eval,WORK,3*npix_fits,INFO)
          deallocate(Bweights)
       endif   
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
+
+! Full sky work space now contains eigenvectors
+      CTpp_evec => FullSkyWorkSpace
+      CTpp_full => NULL()
 
       return
    end subroutine DECOMPOSE_AND_SAVE_EIGENVALUES
@@ -39,6 +47,10 @@ CONTAINS
    integer(I4B)                          :: INFO,ipix,iev,inverse_ev
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP)                              :: evalue_min, eval_temp
+
+      if ( .not.associated(CTpp_evec,FullSkyWorkSpace) ) then
+         stop 'CTpp_evec has not been set in FullSkyWorkSpace'
+      endif
 
       allocate(WORK(0:npix_fits-1))
       do iev = 0, npix_fits/2-1
@@ -78,12 +90,15 @@ CONTAINS
 
    subroutine RECONSTRUCT_FROM_EIGENVALUES()
    ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec -> 
-   !        cut sky CTpp(npix_cut,npix_cut)
+   !        cut sky CTpp(nmode_cut,nmode_cut) 
    ! Note: only significant eigenvalues (up to n_evalues) are used
    ! Note: CTpp_evec is corrupted on return
 
    integer :: ipix,jpix,ne,ic,jc
 
+      if ( .not.associated(CTpp_evec,FullSkyWorkSpace) ) then
+         stop 'CTpp_evec has not been set in FullSkyWorkSpace'
+      endif
    ! Each masked eigenvector is packed into first npix_cut elements of a column
    ! The rest of a column is garbage.
 
@@ -96,6 +111,8 @@ CONTAINS
    ! normalized eigenvectors that are restricted to npix_cut length
 
       call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec,npix_fits,CTpp_evec,npix_fits,0.0d0,CTpp,npix_cut)
+   ! CTpp_evec data has been destroyed
+      CTpp_evec => NULL()
 
       return
    end subroutine RECONSTRUCT_FROM_EIGENVALUES

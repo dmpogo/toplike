@@ -23,10 +23,16 @@ MODULE TOPOLOGY_TYPES
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
 
 ! Global arrays to hold different matrices
-! Persistent are CTpp_eval and CTpp_cplm
-! Intermittent are CTpp, CNTpp and CTpp_evec
+
+! Intermittent data that operates in full sky (npix_fits, npix_fits) space
+  REAL(DP),    DIMENSION(:,:), ALLOCATABLE, TARGET  :: FullSkyWorkSpace
+  REAL(DP),    DIMENSION(:,:), POINTER  :: CTpp_full => NULL()
+  REAL(DP),    DIMENSION(:,:), POINTER  :: CTpp_evec => NULL()
+  REAL(DP),    DIMENSION(:,:), POINTER  :: CTpp_fid  => NULL()
+
+! Persistent are full-sky CTpp_eval and CTpp_cplm
+! Intermittent are nmode size CTpp, CNTpp
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp, CNTpp
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp_evec
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: CTpp_eval
   COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
 
