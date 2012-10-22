@@ -205,8 +205,9 @@ CONTAINS
     REAL(SP), DIMENSION(:,:), ALLOCATABLE :: wmap_data, wmap_mask 
     
 ! Input must be full-sky in globally accessible files
-    if ( getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering) /= npix_fits ) then
-       stop 'Mismatch between map and ctpp sizes'
+    npix_fits=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
+    if ( nside2npix(nside) /= npix_fits ) then
+       stop 'Mismatch between map size and expected nside'
     endif
 
 ! Allocate arrays and input necessary data. 
