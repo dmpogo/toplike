@@ -1,5 +1,5 @@
 PROGRAM Topology_Lmarg
-  !Program to calculate th likelihood of a topology model
+  !Program to calculate the likelihood of a topology model
   !wrt the WMAP data with various cuts.
   !Also makes realizations of the topology
   !
@@ -9,6 +9,7 @@ PROGRAM Topology_Lmarg
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
+  USE basis_modes
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
   USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate, ONLY : getcplm
@@ -35,6 +36,8 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') beam_file
 ! Ring Weights file
   read(*,'(a)') w8_file
+! Fiducial CTpp
+  read(*,'(a)') fidfile
 ! CTpp file
   read(*,'(a)') infile
 ! Makefake map output file
@@ -81,6 +84,14 @@ PROGRAM Topology_Lmarg
   IF (do_Gsmooth) THEN
      WRITE(0,*) 'Signal map smoothed by:'
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
+  ENDIF
+
+  INQUIRE(file=TRIM(fidfile),exist=found)
+  IF (found) THEN
+     WRITE(0,*) 'fiducial CTpp:', TRIM(fidfile)
+  ELSE
+     WRITE(0,*) 'Can not find file', TRIM(fidfile)
+     STOP "No fiducial CTpp file"
   ENDIF
 
   INQUIRE(file=TRIM(infile),exist=found)
@@ -202,32 +213,11 @@ PROGRAM Topology_Lmarg
     ENDIF
   ENDIF
 990 CONTINUE
-  !IF (SVD) THEN
- !    WRITE(0,*) 'Using singular value decomposition method'
- ! ELSE
- !    WRITE(0,*) 'Using Cholesky decomposition method'
- ! ENDIF
-!-------------------------------------------------------------------
-! Read full sky CTpp in, put it temporarily into CTpp_evec
-!
-  open(102,file=TRIM(infile),status='old',form='unformatted')
-  read(102) npix_fits
-  write(0,*)'npix=',npix_fits
-  if ( nside /= npix2nside(npix_fits) ) then
-     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
-     stop
-  endif
-  allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
-  CTpp_full => FullSkyWorkSpace
-  read(102)CTpp_full
-  close(102)
 
 !-------------------------------------------------------------------
-! Read data:  signal map map_signal, noise  map_npp and mask
-!      sets:  npix_cut       
-! signal and noise are smoothed which must coincide with smoothing
-! of CTpp. Calling shell script should check for that.
-!
+! Read and sets: 
+!       mask,npix_cut,map_signal(npix_cut),map_npp(npix_cut,npix_cut)
+! signal and noise are optionally smoothed 
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
@@ -240,7 +230,60 @@ PROGRAM Topology_Lmarg
   CALL ReadWMAP_map()
   write(0,*)'Read the data in'
 
-  !GOTO 991 ! Go straight to make map
+!-------------------------------------------------------------------
+! Allocate global working array for full sky manipulations
+  allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
+
+! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
+  if (do_expsmooth) then
+     CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
+  else
+     CALL collect_beams(Wl,lmax,nside=nside,reset=.false.)
+  endif
+
+!-------------------------------------------------------------------
+! Read in fiducial model and set up cut-sky mode basis
+
+  open(103,file=TRIM(fidfile),status='old',form='unformatted')
+  read(103) npix_fits
+  write(0,*)'npix=',npix_fits
+  if ( nside /= npix2nside(npix_fits) ) then
+     write(0,*)'Size of fiducial Ctpp array does not match requested NSIDE',npix_fits,nside
+     stop
+  endif
+  CTpp_fid => FullSkyWorkSpace
+  read(103)CTpp_fid
+  close(103)
+
+  CALL smooth_ctpp_lm(CTpp_fid,lmax,window=Wl)
+  CALL SET_BASIS_MODES()
+ 
+  write(0,*)'Basis modes defined'
+
+!-------------------------------------------------------------------
+! Expand the data in the basis
+
+  CALL PROJECT_VECTOR_ONTO_BASIS_MODES(map_signal)
+  CALL PROJECT_MATRIX_ONTO_BASIS_MODES(map_npp)
+
+  write(0,*)'Data and Noise projected onto basis modes'
+
+!-------------------------------------------------------------------
+! Read full sky CTpp in
+!
+  open(102,file=TRIM(infile),status='old',form='unformatted')
+  read(102) npix_fits
+  write(0,*)'npix=',npix_fits
+  if ( nside /= npix2nside(npix_fits) ) then
+     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
+     stop
+  endif
+  CTpp_full => FullSkyWorkSpace
+  read(102)CTpp_full
+  close(102)
+
+  CALL smooth_ctpp_lm(CTpp_full,lmax,window=Wl)
+
 !-------------------------------------------------------------------
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
@@ -250,35 +293,28 @@ PROGRAM Topology_Lmarg
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
 
   allocate(CTpp_eval(0:npix_fits-1))
-  allocate(CTpp(0:npix_cut-1,0:npix_cut-1))
-  allocate(CNTpp(0:npix_cut-1,0:npix_cut-1))
+  allocate(CTpp(0:nmode_cut-1,0:nmode_cut-1))
+  allocate(CNTpp(0:nmode_cut-1,0:nmode_cut-1))
 
-! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
-  if (do_expsmooth) then
-     CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
-  else
-     CALL collect_beams(Wl,lmax,nside=nside,reset=.false.)
-  endif
-
-  CALL smooth_ctpp_lm(CTpp_full,lmax,window=Wl)
 ! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval
-! CTpp_full is destroyed and disassociated
+! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)
 
 !-------------------------------------------------------------------
-! Main calls to determine best fit parameters
   IF (make_map_only) THEN 
      call RECONSTRUCT_FROM_EIGENVALUES()
      ampl_best= 1.0d0
      GO TO 991
   ENDIF
 
+!-------------------------------------------------------------------
+! Main calls to determine best fit parameters
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
-     call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
+     CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
@@ -322,6 +358,7 @@ PROGRAM Topology_Lmarg
 ! Archive for storage in the nice commented file
   if (do_nice_out_file) then
      WRITE(103,'(1Xa,I)') 'npix_cut      : ', npix_cut
+     WRITE(103,'(1Xa,I)') 'nmode_cut     : ', nmode_cut
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
      WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)

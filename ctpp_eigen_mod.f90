@@ -79,6 +79,7 @@ CONTAINS
 
 
    subroutine RECONSTRUCT_FROM_EIGENVALUES()
+   USE basis_modes
    ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec -> 
    !        cut sky CTpp(nmode_cut,nmode_cut) 
    ! Note: only significant eigenvalues (up to n_evalues) are used
@@ -94,13 +95,15 @@ CONTAINS
 
       do ne=0,n_evalues-1
          CTpp_evec(0:npix_cut-1,ne)=pack(CTpp_evec(:,ne),map_mask)
-         CTpp_evec(0:npix_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec(0:npix_cut-1,ne)
+         call project_vector_onto_basis_modes(CTpp_evec(0:npix_cut-1,ne))
+         CTpp_evec(0:nmode_cut-1,ne)=sqrt(CTpp_eval(ne))*CTpp_evec(0:nmode_cut-1,ne)
       enddo
 
    ! Now n_evalues colums contain valid set of 
-   ! normalized eigenvectors that are restricted to npix_cut length
+   ! normalized eigenvectors that are restricted to nmode_cut length
 
-      call DGEMM('N','T',npix_cut,npix_cut,n_evalues,1.0d0,CTpp_evec,npix_fits,CTpp_evec,npix_fits,0.0d0,CTpp,npix_cut)
+      call DGEMM('N','T',nmode_cut,nmode_cut,n_evalues,1.0d0,CTpp_evec,npix_fits,CTpp_evec,npix_fits,0.0d0,CTpp,nmode_cut)
+
    ! CTpp_evec data has been destroyed
       CTpp_evec => NULL()
 

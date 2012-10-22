@@ -41,17 +41,19 @@ MODULE TOPOLOGY_TYPES
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: CTpp_eval
   COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
 
+  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: VM
+
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: Wl, w8ring, w8pix
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
   CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
   CHARACTER(len=255)  :: w8_file, beam_file
-  CHARACTER(len=255)  :: infile
+  CHARACTER(len=255)  :: infile, fidfile
   CHARACTER(len=255)  :: fake_file
 
   REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
   INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
-  INTEGER  :: n_evalues
+  INTEGER  :: n_evalues, nmode_cut
 
   LOGICAL  :: do_mask, do_rotate, find_best_angles, add_noise
   LOGICAL  :: do_Gsmooth, do_expsmooth

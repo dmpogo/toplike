@@ -180,118 +180,58 @@ MODULE Topology_Lmarg_mod
      !Find -Ln(Likelihood) for global CTpp and set (CTpp+N)^-1
 
      REAL(DP), intent(in) :: ampl_in
-                           ! CTpp is global input
-                           ! CNTpp is global output
+                           ! CTpp, map_npp and map_signal is global input
+                           ! All are projected on a chosen basis
+                           ! CNTpp is global output in the same basis
 
      INTEGER :: INFO, i, j 
-     REAL(DP), DIMENSION(npix_cut) :: vec
+     REAL(DP), DIMENSION(nmode_cut) :: vec
      REAL(DP) :: LnLikelihood
      REAL(DP) :: trace, LnL_exp, ampl_0noisebest, LnL_0noisebest, DDOT
      REAL(DP), allocatable, dimension(:) :: eigen,WORK
      
-!     REAL(DP), allocatable, dimension(:) :: D
-!     REAL(DP), allocatable, dimension(:,:) :: U,VT
-
 !   scale CTpp and add noise.
 !   Caution - only 'L' triangualr part in map_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
+       CNTpp=CNTpp+map_npp
 
-!   Noise is either smoothed and fills the full matrix, or just a diagonal.
-!   Diagonal may also contain epsilon regularization so it is added even
-!   when add_noise=.FALSE.
-       IF ( add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
+       INFO = 0
+       CALL DPOTRF( 'L', nmode_cut, CNTpp, nmode_cut, INFO )
+       IF (INFO/=0) THEN
+          WRITE(0,'(a,i0)') 'NBad matrix ',INFO
+          WRITE(0,*) "ampl_in", ampl_in
+          allocate(eigen(nmode_cut),WORK(3*nmode_cut))
+       ! Resets the corrupted CNTpp matrix to get the real eigen values
+          CNTpp=CTpp*exp(ampl_in)
           CNTpp=CNTpp+map_npp
-       ELSE
-          FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
+          call DSYEV('V', 'L',nmode_cut,CNTpp,nmode_cut,eigen,WORK,3*nmode_cut,INFO)
+          write(0,*) eigen
+          LnLikelihood = Top_bad_value
+          deallocate(eigen,WORK)
+          STOP
        ENDIF
-
-!       ALLOCATE(D(0:npix_cut-1))
-!       IF(SVD) THEN
-!          ALLOCATE(WORK(0:5*npix_cut))
-!          ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-!          ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-!          INFO = 0
-!          DO i = 0, npix_cut-1
-!             DO j = i, npix_cut-1
-!                CNTpp(i,j) = CNTpp(j,i)
-!             ENDDO
-!          ENDDO
-!          INFO = 0
-!!    Do general SVD 
-!          CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
-!          IF(INFO/=0) THEN
-!             write(0,*) "DGESVD info=", INFO
-!             STOP 'Error SVD DGESVD'
-!          ENDIF
-!
-!          trace = 0.0d0
-!          DO i = 0, mode_number
-!             IF(abs(D(i)) == 0) THEN
-!                WRITE(0,*) "Condition number not sufficient"
-!                VT(i,:) = 0.0d0
-!             ELSE
-!                VT(i,:) = VT(i,:)/D(i)
-!                trace=trace+0.5d0*LOG(D(i))
-!             ENDIF
-!          ENDDO
-!          IF(mode_number<npix_cut-1) THEN
-!             DO i=mode_number+1, npix_cut-1
-!                VT(i,:) = 0.0d0
-!             ENDDO
-!          ENDIF
-!!    Complete the invertion
-!          CALL DGEMM('T','T',npix_cut,npix_cut,npix_cut,1.0d0,VT,npix_cut,&
-!                    & U,npix_cut,0.0d0,CNTpp,npix_cut)
-!          DEALLOCATE(WORK)
-!          DEALLOCATE(VT)
-!          DEALLOCATE(U)
-!       ELSE
-
-!   Cholesky decomposition of CNTpp
-          INFO = 0
-          CALL DPOTRF( 'L', npix_cut, CNTpp, npix_cut, INFO )
-          IF (INFO/=0) THEN
-             WRITE(0,'(a,i0)') 'NBad matrix ',INFO
-             WRITE(0,*) "ampl_in", ampl_in
-             allocate(eigen(npix_cut),WORK(3*npix_cut))
-         ! Resets the corrupted CNTpp matrix to get the real eigen values
-             CNTpp=CTpp*exp(ampl_in)
-             IF (add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
-                CNTpp=CNTpp+map_npp
-             ELSE
-                FORALL(i=0:npix_cut-1) CNTpp(i,i) = CNTpp(i,i)+map_npp(i,i)
-             ENDIF
-             call DSYEV('V', 'L',npix_cut,CNTpp,npix_cut,eigen,WORK,3*npix_cut,INFO)
-             write(0,*) eigen
-             LnLikelihood = Top_bad_value
-             deallocate(eigen,WORK)
-             STOP
-          ENDIF
 !   Determinant calculation is now in Cholesky form, trace=log[sqrt(det(Ctpp))]
-          trace = 0.0d0
-          DO i = 0, npix_cut-1
-             trace = trace + LOG(CNTpp(i,i))
-          ENDDO
+       trace = 0.0d0
+       DO i = 0, nmode_cut-1
+          trace = trace + LOG(CNTpp(i,i))
+       ENDDO
 
 !   Finish inverting CNTpp
-          INFO = 0
-          CALL DPOTRI( 'L', npix_cut, CNTpp, npix_cut, INFO )
-          IF(INFO/=0) STOP 'Error on DPOTRI'
-!       ENDIF
+       INFO = 0
+       CALL DPOTRI( 'L', nmode_cut, CNTpp, nmode_cut, INFO )
+       IF(INFO/=0) STOP 'Error on DPOTRI'
 
 !   Compute exponential part of -LnL
-       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec,1)
-       LnL_exp = DDOT(npix_cut,map_signal,1,vec,1)
+       call DSYMV('L',nmode_cut,1.0d0,CNTpp,nmode_cut,map_signal,1,0.0d0,vec,1)
+       LnL_exp = DDOT(nmode_cut,map_signal,1,vec,1)
 
 !   trace has already been divided by 2
        LnLikelihood = 0.5d0*LnL_exp + trace
        write(0,*) 'Full noise:',ampl_in,LnLikelihood,trace,LnL_exp
-!       write(0,*) 'D(mode_number+1):',D(mode_number+1)
-!       DEALLOCATE(D)
 
 !   Analytic best amplitude and likelihood for zero noise - for information only
-!       ampl_0noisebest= LnL_exp/npix_cut
-!       LnL_0noisebest = 0.5d0*npix_cut*LOG(ampl_0noisebest)+trace
+!       ampl_0noisebest= LnL_exp/nmode_cut
+!       LnL_0noisebest = 0.5d0*nmode_cut*LOG(ampl_0noisebest)+trace
 !       write(0,*) 'Zero noise:',ampl_0noisebest,LnL_0noisebest
 
        RETURN
@@ -302,19 +242,19 @@ MODULE Topology_Lmarg_mod
                        ! F(A) = 1/2 \sum_ij (Abest*C+N)^{-1}_ij C_ij
                        !Implicit input: (C+N)^-1 (at ampl=best) in CNtpp,
                        !                 C       (at ampl=1) in Ctpp
-                       !                 npix_cut
+                       !                 nmode_cut
      INTEGER :: i,j
      REAL(DP)    :: LmaxFisher, trace
      REAL(DP), allocatable,dimension(:,:) :: CTN_1CT
 
-       allocate(CTN_1CT(0:npix_cut-1,0:npix_cut-1))
+       allocate(CTN_1CT(0:nmode_cut-1,0:nmode_cut-1))
 
-       call DSYMM('L','L',npix_cut,npix_cut,1.0d0,CNTpp,npix_cut,CTpp,npix_cut,0.0d0,CTN_1CT,npix_cut)
+       call DSYMM('L','L',nmode_cut,nmode_cut,1.0d0,CNTpp,nmode_cut,CTpp,nmode_cut,0.0d0,CTN_1CT,nmode_cut)
     
        LmaxFisher=0.0d0
        trace=0.d0
-       do j=0,npix_cut-1
-          do i=j+1,npix_cut-1
+       do j=0,nmode_cut-1
+          do i=j+1,nmode_cut-1
              LmaxFisher=LmaxFisher+2.0d0*CTN_1CT(i,j)**2
           enddo
           LmaxFisher=LmaxFisher+CTN_1CT(j,j)**2
@@ -334,18 +274,18 @@ MODULE Topology_Lmarg_mod
                              !Implicit input: (C+N)^-1 (ampl=best) in CNtpp,
                              !                 C       (ampl=1) in Ctpp
                              !                 map_signal
-                             !                 npix_cut
+                             !                 nmode_cut
      REAL(DP)    :: LmaxCurv,DDOT
      REAL(DP), allocatable,dimension(:) :: vec1,vec2
 
-       allocate(vec1(0:npix_cut-1),vec2(0:npix_cut-1))
+       allocate(vec1(0:nmode_cut-1),vec2(0:nmode_cut-1))
 
-       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,map_signal,1,0.0d0,vec1,1)
-       write(0,*)'exp logL', DDOT(npix_cut,vec1,1,map_signal,1)
-       call DSYMV('L',npix_cut,1.0d0,CTpp,npix_cut,vec1,1,0.0d0,vec2,1)
-       write(0,*)'Gradient balance: exponential part:', DDOT(npix_cut,vec1,1,vec2,1)
-       call DSYMV('L',npix_cut,1.0d0,CNTpp,npix_cut,vec2,1,0.0d0,vec1,1)
-       LmaxCurv=DDOT(npix_cut,vec1,1,vec2,1)
+       call DSYMV('L',nmode_cut,1.0d0,CNTpp,nmode_cut,map_signal,1,0.0d0,vec1,1)
+       write(0,*)'exp logL', DDOT(nmode_cut,vec1,1,map_signal,1)
+       call DSYMV('L',nmode_cut,1.0d0,CTpp,nmode_cut,vec1,1,0.0d0,vec2,1)
+       write(0,*)'Gradient balance: exponential part:', DDOT(nmode_cut,vec1,1,vec2,1)
+       call DSYMV('L',nmode_cut,1.0d0,CNTpp,nmode_cut,vec2,1,0.0d0,vec1,1)
+       LmaxCurv=DDOT(nmode_cut,vec1,1,vec2,1)
     
        deallocate(vec1,vec2)
        RETURN
