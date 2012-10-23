@@ -132,7 +132,8 @@ contains
     LOGICAL,  intent(in), optional                    :: cut_md
 
     COMPLEX(DP), DIMENSION(1:1, 0:lmax, 0:lmax) :: alm
-    REAL(DP),    DIMENSION(0:12*nside**2 - 1,1)   :: map
+    REAL(DP),    DIMENSION(0:12*nside**2 - 1,1) :: map
+    REAL(DP),    DIMENSION(2)                   :: zbounds=(/0.0_dp, 0.0_dp/)
     INTEGER :: l, m, p, indl, lmin
     INTEGER, parameter                          :: iter_order=5
     
@@ -160,9 +161,9 @@ contains
 !$OMP CRITICAL       
        map(:,1) = ctpp(:,p)
        IF (n_plm .ne. 0) THEN
-          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring,plm(0:n_plm-1,1:1))
+          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,zbounds,w8ring,plm(0:n_plm-1,1:1))
        ELSE
-          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
+          CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,zbounds,w8ring)
        ENDIF
 
        if (present(kernel) ) then             ! smooth
@@ -197,15 +198,16 @@ contains
 
     COMPLEX(DP), DIMENSION(1: 1, 0: lmax, 0: lmax) :: alm
     REAL(DP),    DIMENSION(0: 12 * nside**2 - 1)   :: map
+    REAL(DP),    DIMENSION(2)                   :: zbounds=(/0.0_dp, 0.0_dp/)
     INTEGER :: l, m, p
     
     ! The lm-transform of the eigenvector matrix.
     DO p = 0, n_evalues - 1
        map(:) = ctpp(:,p)
        IF(n_plm .ne. 0) THEN
-          CALL map2alm(nside, lmax, lmax, map, alm, (/0.0_dp,0.0_dp/), w8ring, plm(0:n_plm-1,1))
+          CALL map2alm(nside, lmax, lmax, map, alm, zbounds, w8ring, plm(0:n_plm-1,1))
        ELSE
-          CALL map2alm(nside, lmax, lmax, map, alm, (/0.0_dp,0.0_dp/), w8ring)
+          CALL map2alm(nside, lmax, lmax, map, alm, zbounds, w8ring)
        ENDIF
 
        if(present(cut_md).and.CUT_MD) THEN   ! cut monopole and dipole
