@@ -169,6 +169,7 @@ CONTAINS
 
       if ( evalue_cut_in%STRATEGY == S_NONE ) then
          n_evalues = npix
+         evalue_min=0.0_dp
       else
          if ( evalue_cut_in%STRATEGY == S_CONDITIONING ) then 
             evalue_min   = evalue_cut_in%condition_number*D(0)
