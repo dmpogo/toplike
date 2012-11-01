@@ -7,7 +7,8 @@ MODULEDIR2 = ../include
 
 FC	= ifort
 OMP     = -openmp
-CHECKS = -check all
+#CHECKS = -check all
+CHECKS =
 PROFILING= # -pg
 FFLAGS	= -O -w $(OMP)  -module $(MODULEDIR1) -fpp $(CHECKS) $(PROFILING)
 LDFLAGS	= 
@@ -54,10 +55,11 @@ default: topmarg
 topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
-Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o Topology_map_mod.o
+Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o \
+			Topology_map_mod.o basis_modes.o
 Topology_Lmarg_mod.o  : Topology_types.o ctpp_eigen_mod.o nr_minimization.o
 Topology_map_mod.o    : Topology_types.o 
-ctpp_eigen_mod.o      : Topology_types.o
+ctpp_eigen_mod.o      : Topology_types.o basis_modes.o
 basis_modes.o         : Topology_types.o
 
 %.o    : %.f90
