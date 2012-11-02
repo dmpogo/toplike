@@ -244,16 +244,16 @@ PROGRAM Topology_Lmarg
 !-------------------------------------------------------------------
 ! Read in fiducial model and set up cut-sky mode basis
 
-  open(103,file=TRIM(fidfile),status='old',form='unformatted')
-  read(103) npix_fits
+  open(104,file=TRIM(fidfile),status='old',form='unformatted')
+  read(104) npix_fits
   write(0,*)'npix=',npix_fits
   if ( nside /= npix2nside(npix_fits) ) then
      write(0,*)'Size of fiducial Ctpp array does not match requested NSIDE',npix_fits,nside
      stop
   endif
   CTpp_fid => FullSkyWorkSpace
-  read(103)CTpp_fid
-  close(103)
+  read(104)CTpp_fid
+  close(104)
 
   CALL smooth_ctpp_lm(CTpp_fid,lmax,window=Wl)
   CALL SET_BASIS_MODES()
