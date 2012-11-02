@@ -313,6 +313,7 @@ MODULE Topology_Lmarg_mod
         p(:,2) = (/ 0.0_dp, 0.0_dp,  1.0_dp, 0.0_dp /) 
         p(:,3) = (/ 0.0_dp, 1.0_dp,  0.0_dp, 0.0_dp /) 
 
+
         p = p*st_ang
 
         do i=1,4

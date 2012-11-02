@@ -6,7 +6,7 @@ MODULE Topology_map_mod
   USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map
+  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map, ReadPlanck_map
   
 CONTAINS
 
@@ -198,6 +198,7 @@ CONTAINS
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
     INTEGER :: i,j,ordering,lcount,iter_order=5
+    logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
     REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
@@ -221,6 +222,7 @@ CONTAINS
     else if ( ordering == 2 ) then
        write(0,*)'Input converted from NESTED to RING'
        call convert_nest2ring(nside,wmap_data)
+       convert_from_nested=.true.
     else
        write(0,*)'Input is in RING pixelization'
     endif
@@ -296,6 +298,116 @@ CONTAINS
 
     RETURN
   END SUBROUTINE ReadWMAP_map
+
+  SUBROUTINE ReadPlanck_map()
+    USE ctpplm_transforms
+    USE beams
+    USE ALM_TOOLS
+    !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
+    
+    INTEGER :: i,j,ordering,lcount,iter_order=5
+    logical :: convert_from_nested=.false.
+    complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
+    complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
+    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask
+    
+! Input must be full-sky in globally accessible files
+    npix_fits=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
+    if ( nside2npix(nside) /= npix_fits ) then
+       stop 'Mismatch between map size and expected nside'
+    endif
+
+! Allocate arrays and input necessary data. 
+    ALLOCATE(exp_data(0:npix_fits-1,1:1))
+    WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
+    CALL input_map(TRIM(ADJUSTL(map_signal_file)),exp_data,npix_fits,1)
+    exp_data=exp_data*1.0d3      ! convert to mK, assuming input is in K
+
+! Check ordering, CTpp is probably given in RING (to do: auto-synchronized)
+    if ( ordering == 0 ) then
+       write(0,*)'Ordering of the input map is unknown, assumed RING'
+    else if ( ordering == 2 ) then
+       write(0,*)'Input converted from NESTED to RING'
+       call convert_nest2ring(nside,exp_data)
+       convert_from_nested=.true.
+    else
+       write(0,*)'Input is in RING pixelization'
+    endif
+
+    ALLOCATE(exp_noise(0:npix_fits-1,1:1))
+    IF( add_noise) THEN
+       ! Assumes diagonal noise, 
+       ! and wmap_data to contain noise per pixel in same units as map
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
+       CALL input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix_fits,1)
+       exp_noise=exp_noise*1.0d3   ! convert to mK, it is in K (check !)
+       exp_noise=exp_noise**2      ! make the variance
+       if (convert_from_nested) call convert_nest2ring(nside,exp_noise)
+    ELSE
+       exp_noise = 0.0_dp
+    ENDIF
+
+    ALLOCATE(map_mask(0:npix_fits-1))
+    IF(do_mask) THEN
+       ALLOCATE(exp_mask(0:npix_fits-1,1:1))
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
+       CALL input_map(TRIM(ADJUSTL(map_mask_file)),exp_mask,npix_fits,1)
+       map_mask = ( exp_mask(:,1) /= 0 ) 
+       DEALLOCATE(exp_mask)
+    ELSE
+       map_mask = .true.
+    ENDIF
+
+! Count unmasked pixels 
+    npix_cut = count(map_mask)
+    write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
+    if (npix_cut == 0) STOP 'All pixels are masked'
+
+
+! data is in, now process it and store in global arrays
+
+
+!Smooth and pack the signal.
+    ALLOCATE(map_signal(0:npix_cut-1))
+    IF (do_Gsmooth.or.do_expsmooth) THEN
+       ALLOCATE( alm(1:1,0:lmax,0:lmax) )
+       call map2alm_iterative(nside,lmax,lmax,iter_order,exp_data,alm,(/0.0_dp, 0.0_dp/),w8ring)
+       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alm2map(nside,lmax,lmax,alm,exp_data(:,1))
+       map_signal = pack(exp_data(:,1),map_mask)
+       DEALLOCATE(alm)
+    ELSE
+       map_signal = pack(exp_data(:,1),map_mask)
+    ENDIF
+    DEALLOCATE(exp_data)
+
+!Smooth noise if needed and store it in a cut sky matrix map_npp
+    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+    IF (add_noise.and.(do_Gsmooth.or.do_expsmooth)) THEN
+       call getclm(clm, lcount, exp_noise, npix_fits, lmax, w8_file=w8_file)
+       call smooth_clm(clm, lcount, Wl(:,1), lmax)
+       call getcpp(map_npp, npix_cut, clm, lcount, nside, mask=map_mask)
+    ENDIF
+
+! diagonal noise needs always to be defined, although may be zero
+    ALLOCATE(diag_noise(0:npix_cut-1))
+    if ( epsil > 0.0 ) then
+        diag_noise = epsil
+    else 
+        diag_noise = 0.0d0
+    endif
+
+    ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
+    if (add_noise.and.(.not.(do_Gsmooth.or.do_expsmooth)) ) then
+       diag_noise = diag_noise + pack(exp_noise(:,1),map_mask)
+    endif
+    DEALLOCATE(exp_noise)
+
+    FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
+
+    RETURN
+  END SUBROUTINE ReadPlanck_map
 
 SUBROUTINE healpix_euler(alpha,beta,gamma,amat)
 ! see Varshalovich, Moskalev & Kershonskii

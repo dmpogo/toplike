@@ -32,6 +32,7 @@ PROGRAM Topology_Lmarg
 ! data and noise file
   read(*,'(a)') map_signal_file
 ! Map modification files
+  read(*,'(a)') map_noise_file
   read(*,'(a)') map_mask_file
   read(*,'(a)') beam_file
 ! Ring Weights file
@@ -121,6 +122,15 @@ PROGRAM Topology_Lmarg
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
+  ENDIF
+
+  INQUIRE(file=TRIM(map_noise_file),exist=found)
+  IF (found) THEN
+     WRITE(0,*) 'Using a noise file', TRIM(map_noise_file)
+  ELSE
+     WRITE(0,*) 'No noise file'  ! Some formats (WMAP) do not require 
+                                 ! separate noise file, so add_noise
+                                 ! will decide if any of the noise is used
   ENDIF
 
   IF (add_noise) THEN
@@ -227,7 +237,7 @@ PROGRAM Topology_Lmarg
   else
      CALL collect_beams(Wl,lmax,reset=.true.)
   endif
-  CALL ReadWMAP_map()
+  CALL ReadPlanck_map()
   write(0,*)'Read the data in'
 
 !-------------------------------------------------------------------
