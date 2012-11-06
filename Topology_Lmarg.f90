@@ -337,7 +337,7 @@ PROGRAM Topology_Lmarg
   ampl_best=exp(ampl_best)
 
 !-------------------------------------------------------------------
-! At the result of LnLikelihood call, CNTpp contains (CTpp+Npp)^-1
+! At the result of LnLikelihood call, CNTpp contains (Abest*CTpp+Npp)^-1
 ! Use it together with CTpp to calculate Fisher matrix at the bestfit amplitude
 
   ampl_var =LmaxFisher()
@@ -375,6 +375,8 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
+     WRITE(103,'(a, I)')'Normalization range l=2,',lnorm
+     WRITE(103,'(a, 1pd15.7)')'  curlCl(mK)   :',curlCl_in_mK
   endif
 
 ! Optional output of cut-sky realization from CTpp

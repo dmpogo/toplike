@@ -22,6 +22,10 @@ MODULE TOPOLOGY_TYPES
 
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
+! CTpp normalization
+  integer(I4B)  :: lnorm=10
+  real(DP)      :: curlCl_in_mK = 1.d-2  ! 10x real to have ampl~-2
+
 ! Data
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
