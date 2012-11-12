@@ -6,12 +6,12 @@ MODULE Topology_map_mod
   USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, WriteWmap_map, ReadWmap_map, ReadPlanck_map
+  PUBLIC :: make_fake_map, WriteWmap_map, ReadExpData
   
 CONTAINS
 
   SUBROUTINE make_fake_map(ampl)
-    REAL(DP), INTENT(IN)                 ::ampl
+    REAL(DP), INTENT(IN)                  ::ampl
 
     REAL(DP), DIMENSION(0:npix_cut*10-1)  :: ework
     REAL(DP), DIMENSION(0:npix_cut-1)     :: evals
@@ -190,6 +190,17 @@ CONTAINS
     RETURN
   END SUBROUTINE WriteWMAP_map
 
+  SUBROUTINE ReadExpData(format_choice)
+  character*(*), intent(in)    :: format_choice
+
+    if (index(ADJUSTL(format_choice),'WMAP')) then
+       call ReadWMAP_map()
+    else if (index(ADJUSTL(format_choice),'PLANCK')) then
+       call ReadPlanck_map()
+    else
+       stop 'Unknown input format'
+    endif
+  END SUBROUTINE ReadExpData
 
   SUBROUTINE ReadWMAP_map()
     USE ctpplm_transforms
@@ -252,9 +263,7 @@ CONTAINS
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
 
-
 ! data is in, now process it and store in global arrays
-
 
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))
@@ -366,7 +375,6 @@ CONTAINS
 
 
 ! data is in, now process it and store in global arrays
-
 
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))

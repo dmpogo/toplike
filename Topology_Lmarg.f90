@@ -237,7 +237,7 @@ PROGRAM Topology_Lmarg
   else
      CALL collect_beams(Wl,lmax,reset=.true.)
   endif
-  CALL ReadPlanck_map()
+  CALL ReadExpData(expdata_format)
   write(0,*)'Read the data in'
 
 !-------------------------------------------------------------------
@@ -374,6 +374,7 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
      WRITE(103,'(a, I)')'Normalization range l=2,',lnorm
      WRITE(103,'(a, 1pd15.7)')'  curlCl(mK)   :',curlCl_in_mK
+     close(103)
   endif
 
 ! Optional output of cut-sky realization from CTpp
@@ -384,6 +385,5 @@ PROGRAM Topology_Lmarg
      CALL make_fake_map(ampl_best)
      CALL WriteWMAP_map()
   endif
-  close(103)
 
 END PROGRAM Topology_Lmarg
