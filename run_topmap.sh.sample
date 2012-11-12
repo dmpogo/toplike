@@ -1,0 +1,96 @@
+#!/bin/sh
+##########################################################################
+#-------------------Ini values-------------------------------------------#
+##########################################################################
+umask 0003
+
+space=I
+healpix_dir=${HEALPIX}
+data_basedir='../Data/WMAP'
+ctpp_basedir='../Output1/Spherical-'${space}'/CTpp_theory'
+fiducial_ctpp='../Output1/Spherical-'${space}'/CTpp_theory/CTpp_fiducial/ctpp_CAMBCL_Nside16_OL0.73_Ok0.0_H71'
+
+output_basedir='../Output1/Spherical-'${space}
+
+signal_file=${data_basedir}'/coadd_cleanimap_16.fits'
+ring_weight_file=${healpix_dir}'/data/weight_ring_n00016.fits'
+
+nside=16
+nsh=21
+OmegaL=0.73
+H0=71.
+Ok=${1}
+
+ampl=${2}
+
+do_rotate='.TRUE.'
+# If true will rotate to orientation below
+angles='-0.2196D+01   0.6707D+00   0.3032D+01'
+lmax=40
+
+add_map_noise='.FALSE.'
+#
+# If do_smooth=TRUE  and noise_file is set 
+# we smooth noise correlation before adding matrix to CTpp
+# If do_smooth=FALSE and noise_file is set 
+# the noise correlation matrix is added to CTpp "as is" 
+#                                   (presumably should be diagonal )
+noise_file=''
+
+do_smooth='.TRUE.'
+beam_file=''
+#G_fwhm='492.0'
+G_fwhm='640.0'
+
+
+#if set to 0 will use system clock
+iseed=1
+
+##########################################################################
+#--------------------Running script--------------------------------------#
+##########################################################################
+#Prints output to file not to screen
+
+#Construct file names from parameters given
+
+if [ "$do_smooth" == ".TRUE." ]; then
+   smooth="_smoothed${G_fwhm}"
+else
+   smooth=''
+fi
+
+if [ "$add_map_noise" == ".TRUE." ]; then
+   noise='_cnoise'
+else
+   noise='_cnonoise'
+fi
+
+suffixes=${space}${smooth}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
+
+# Map output
+map_out_file=${output_basedir}/CTpp_maps/map${mask}${smooth}_nside${nside}_nsh${nsh}_Ok${1}${noise}${extras}.fits
+
+# We want unsmoothed CTpp since smoothing is done in Topmarg
+CTpp=${ctpp_basedir}'/CTpp/ctpp_'${space}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}${extras}
+
+#Main call
+echo 'Starting Ok'${1}
+./topmap  << EOF
+${signal_file}
+${noise_file}
+${beam_file}
+${ring_weight_file}
+${CTpp}
+${map_out_file}
+
+${add_map_noise}
+${iseed}
+
+${G_fwhm}
+${lmax}
+
+${ampl}
+${do_rotate}
+${angles}
+EOF
+echo 'DONE'

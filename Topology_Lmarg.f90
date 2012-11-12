@@ -41,8 +41,6 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') fidfile
 ! CTpp file
   read(*,'(a)') infile
-! Makefake map output file
-  read(*,'(a)') fake_file
 
   read(*,*) do_nice_out_file
 ! Read in parameters
@@ -52,13 +50,7 @@ PROGRAM Topology_Lmarg
   read(*,*) H0
   read(*,*) Ok
 
-  read(*,*) make_map
-  read(*,*) add_map_noise
-  read(*,*) iseed
-  read(*,*) make_map_only
-
   read(*,*) beam_fwhm
-  
   read(*,*) lmax
 
   read(*,*) do_rotate
@@ -150,11 +142,6 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Using regularization option, epsil =', epsil
   ENDIF
 
-  IF (make_map_only) THEN
-     WRITE(0,*)'Making map only'
-     GO TO 990
-  ENDIF
-
   IF (do_nice_out_file) THEN
      WRITE(0,*) 'Using nice out file'
   ELSE
@@ -216,13 +203,7 @@ PROGRAM Topology_Lmarg
        ENDIF
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
-    IF(make_map) THEN
-       WRITE(103,'(1Xa,1Xa)')'Making map    :', TRIM(fake_file)
-       WRITE(103,'(1Xa,1XL1)')'add_map_noise :', add_map_noise
-       WRITE(103,'(1Xa,1XL1)')'smooth_map    :', do_Gsmooth
-    ENDIF
   ENDIF
-990 CONTINUE
 
 !-------------------------------------------------------------------
 ! Read and sets: 
@@ -311,13 +292,6 @@ PROGRAM Topology_Lmarg
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_eval)
-
-!-------------------------------------------------------------------
-  IF (make_map_only) THEN 
-     call RECONSTRUCT_FROM_EIGENVALUES()
-     ampl_best= 1.0d0
-     GO TO 991
-  ENDIF
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
   allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
@@ -375,15 +349,6 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, I)')'Normalization range l=2,',lnorm
      WRITE(103,'(a, 1pd15.7)')'  curlCl(mK)   :',curlCl_in_mK
      close(103)
-  endif
-
-! Optional output of cut-sky realization from CTpp
-!  Call make_fake_mode_map(ampl_best)
-
-991 CONTINUE
-  IF (make_map) then
-     CALL make_fake_map(ampl_best)
-     CALL WriteWMAP_map()
   endif
 
 END PROGRAM Topology_Lmarg

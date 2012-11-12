@@ -3,139 +3,79 @@ MODULE Topology_map_mod
   USE FITSTOOLS
   USE HEAD_FITS
   USE PIX_TOOLS
-  USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, WriteWmap_map, ReadExpData
+  PUBLIC :: make_fake_map, Write_map, ReadExpData
   
 CONTAINS
 
-  SUBROUTINE make_fake_map(ampl)
-    REAL(DP), INTENT(IN)                  ::ampl
+  SUBROUTINE make_fake_map(ampl,map)
+    USE beams
+    USE ALM_TOOLS
+    USE RAN_TOOLS, ONLY : randgauss_boxmuller
+    real(DP), intent(in)                               :: ampl
+    real(DP), intent(out), allocatable, dimension(:,:) :: map
 
-    REAL(DP), DIMENSION(0:npix_cut*10-1)  :: ework
-    REAL(DP), DIMENSION(0:npix_cut-1)     :: evals
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: matb
-    REAL(DP), DIMENSION(:), ALLOCATABLE   :: map_cut
-    INTEGER :: INFO,i,iring,j
+    real(DP),    allocatable, dimension(:,:)   :: random_numbers
+    complex(DP), allocatable, dimension(:,:,:) :: alm
+    integer(I4B)            :: i, iter_order=5
+ 
+    if (allocated(map)) deallocate(map)
+    allocate(map(0:npix_fits-1,1:1))
+! if we add noise, generate random full sky noise map, else set it to zero
+    if (add_map_noise) then
+       do_Gsmooth=.false.
+       do_mask=.false.
+       CALL ReadExpData(expdata_format)
+       if (npix_cut /= npix_fits) stop 'Must be full sky. Check noise masking'
 
+       allocate(random_numbers(0:npix_fits-1,1))
+       do i = 0, npix_fits-1
+          random_numbers(i,1) = randgauss_boxmuller(iseed)
+          map(i,1)=random_numbers(i,1)*sqrt(map_npp(i,i))
+       enddo
+       deallocate(random_numbers)
+    else
+       map=0.0_dp
+    endif
 
-    REAL(DP), ALLOCATABLE, DIMENSION(:) :: WORKNEL,D
-    REAL(DP), ALLOCATABLE, DIMENSION(:,:) :: U,VT
-!    GOTO 696
+! Generate random set of CTpp eigenvalues (sqrt)
+    allocate(random_numbers(0:n_evalues-1,1))
+    do i = 0, n_evalues - 1
+       random_numbers(i,1) = randgauss_boxmuller(iseed)
+       random_numbers(i,1) = random_numbers(i,1)*sqrt(ampl*CTpp_eval(i))
+    enddo
 
-    IF(iseed == 0) THEN
-       CALL SYSTEM_CLOCK(count = iseed)
-       IF (MOD(iseed, 2) .EQ. 0) iseed = iseed + 1
-    ENDIF
+! Combine correlated and noise map on full sky
+    call dgemm('N','N',npix_fits,1,n_evalues,1.0_dp,CTpp_evec,npix_fits,random_numbers,n_evalues,1.0_dp,map,npix_fits)
+    deallocate(random_numbers)
 
-    ALLOCATE(matb(0:npix_cut-1,0:npix_cut-1))
+! Smooth full-sky map if needed
+    if (beam_fwhm > 0.0_dp) then
+       call collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+       allocate( alm(1:1,0:lmax,0:lmax) )
+       call map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
+       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alm2map(nside,lmax,lmax,alm,map(:,1))
+       deallocate( alm )
+    endif
 
-! calculate Hermitean square root of correlation matrix. Spoils
-    CNTpp=CTpp*ampl
-    IF ( add_map_noise ) THEN
-       IF (add_noise.and.do_Gsmooth) THEN
-          CNTpp=CNTpp+map_npp
-       ELSE
-          FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + map_npp(i,i)
-       ENDIF
-    ELSE
-! this is a regularization hack for the case one wants pure signal map
-       FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + epsil
-    ENDIF
-       
-!    IF(SVD) THEN
-!       WRITE(0,*)"Doing SVD MAP"
-!       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-!       ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-!       ALLOCATE(WORKNEL(0:5*npix_cut))
-!       INFO = 0
-!       DO i = 0, npix_cut-1
-!          DO j = i, npix_cut-1
-!             CNTpp(i,j) = CNTpp(j,i)
-!          ENDDO
-!       ENDDO
-!!    Do general SVD 
-!       CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,evals,&
-!                  & U,npix_cut,VT,npix_cut,WORKNEL,5*npix_cut,INFO)
-!       IF(INFO/=0) THEN
-!          write(0,*) "DGESVD info=", INFO
-!          STOP 'Error SVD DGESVD'
-!       ENDIF
-!       DO i = 0, mode_number
-!          IF(abs(evals(i)) == 0.0) THEN
-!             VT(i,:) = 0.0d0
-!          ELSE
-!             VT(i,:) = VT(i,:)*SQRT(evals(i))
-!          ENDIF
-!       ENDDO
-!       IF(mode_number<npix_cut-1) THEN
-!          DO i = mode_number+1, npix_cut-1
-!             VT(i,:) = 0.0d0
-!          ENDDO
-!       ENDIF
-!
-!       CALL DGEMM('N','N',npix_cut,npix_cut,npix_cut,1.0d0,U,npix_cut,&
-!                 & VT,npix_cut,0.0d0,matb,npix_cut)
-!       DEALLOCATE(U)
-!       DEALLOCATE(VT)
-!       DEALLOCATE(WORKNEL)
-!    ELSE !Cholesky method
-       CALL dsyev('V', 'L', npix_cut, CNTpp, npix_cut, evals, ework, &
-                 & 10*npix_cut,INFO)
-       IF(INFO == 0) THEN
-          DO i=0,npix_cut-1
-             IF (evals(i) < 0.d0) THEN
-                WRITE(0,'(a,i7,1x,1pe12.4)') 'Warning negative eigenvalue ', i, evals(i)
-                evals(i) = 0.d0
-             ENDIF
-             CNTpp(:,i) = CNTpp(:,i) * evals(i)**0.25d0
-          ENDDO
-       ELSE
-          WRITE(0,*)'INFO=',INFO
-          STOP 'Failed on DSYEV'
-       ENDIF
-
-       CALL dsyrk('L', 'N', npix_cut, npix_cut, 1.0d0, CNTpp, npix_cut,&
-            &0.0d0, matb, npix_cut)
-!    ENDIF
-
-    ALLOCATE(map_cut(0:npix_cut-1))
-    
-    DO i = 0, npix_cut - 1
-       map_cut(i) = DBLE(randgauss_boxmuller(iseed))
-    ENDDO
-
-!   Generate random realization for correlated gaussian map
-    
-    CALL dsymv('L',npix_cut,1.0d0,matb,npix_cut,map_cut,1,0.0d0,map_signal,1)
-    
-!   Uncomment to print real map with cut
-!696 CONTINUE
-!   ALLOCATE(map_cut2(0:npix_cut-1))
-!   ALLOCATE(heal_map(0:npix_fits-1,1))
-!   map_cut2=wmap_signal 
-!   map_cut2=0.0d0 
-!   map_cut2(600)=wmap_noise(600)
-
-    DEALLOCATE(map_cut,matb)
-
+    write(0,*)'random map has been generated'
     return
   END SUBROUTINE make_fake_map
 
-  SUBROUTINE WriteWMAP_map()
+  SUBROUTINE Write_map(heal_map)
+    REAL(DP), INTENT(IN), DIMENSION(:,:)   :: heal_map
     !-----------------------------------------------------------------------
     !                        generates header
     !-----------------------------------------------------------------------
-    REAL(SP), DIMENSION(:,:), ALLOCATABLE    :: heal_map
     INTEGER, PARAMETER :: nlheader = 30
     CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
     INTEGER :: iostatus
     REAL    :: nullval
     LOGICAL :: anynull,filefound
 
-    ALLOCATE(heal_map(0:npix_fits-1,1))
-    heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
+    !heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
 
     header = ''
 
@@ -185,10 +125,8 @@ CONTAINS
     CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
     write(0,*)'Done'
 
-    DEALLOCATE(heal_map)
-
     RETURN
-  END SUBROUTINE WriteWMAP_map
+  END SUBROUTINE Write_map
 
   SUBROUTINE ReadExpData(format_choice)
   character*(*), intent(in)    :: format_choice

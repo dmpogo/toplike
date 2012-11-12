@@ -47,15 +47,6 @@ epsil='0.0'
 beam_file=''
 G_fwhm='492.0'
 
-#make map visualization from CTpp
-make_map='.FALSE.'
-#makes map only does not find max likelihood
-make_map_only='.FALSE.'
-add_map_noise='.FALSE.'
-
-#if set to 0 will use system clock
-iseed=1
-
 do_nice_out_file='.TRUE.'
 
 ##########################################################################
@@ -77,12 +68,6 @@ else
    smooth="_smoothed${G_fwhm}"
 fi
 
-if [ "$add_map_noise" == ".TRUE." ]; then
-   noise="_cnoise"
-else
-   noise="_cnonoise"
-fi
-
 suffixes=${space}${smooth}_nside${nside}_nsh${nsh}_Ok${1}_epsil${epsil}${extras}
 
 #Use nice output file
@@ -91,8 +76,6 @@ nice_out_file=${output_basedir}/Likelihood/topmarg_${suffixes}.out
 run_out_file=${output_basedir}/Likelihood/topmarg_fullrun_${suffixes}.out
 # Concise output
 short_out_file=${output_basedir}/Likelihood/topmarg_allOk_${suffixes}.out
-# Map output
-map_out_file=${output_basedir}/CTpp_maps/map${mask}${smooth}_nside${nside}_nsh${nsh}_Ok${1}${noise}${extras}.fits
 
 # We want unsmoothed CTpp since smoothing is done in Topmarg
 CTpp=${ctpp_basedir}'/CTpp/ctpp_'${space}'_nside'${nside}'_nsh'${nsh}'_Ok'${1}${extras}
@@ -108,7 +91,6 @@ ${beam_file}
 ${ring_weight_file}
 ${fiducial_ctpp}
 ${CTpp}
-${map_out_file}
 ${output_file}
 
 ${nside}
@@ -117,13 +99,7 @@ ${OmegaL}
 ${H0}
 ${Ok}
 
-${make_map}
-${add_map_noise}
-${iseed}
-${make_map_only}
-
 ${G_fwhm}
-
 ${lmax}
 
 ${do_rotate}
@@ -143,7 +119,6 @@ ${beam_file}
 ${ring_weight_file}
 ${fiducial_ctpp}
 ${CTpp}
-${map_out_file}
 ${output_file}
 
 ${nside}
@@ -152,13 +127,7 @@ ${OmegaL}
 ${H0}
 ${Ok}
 
-${make_map}
-${add_map_noise}
-${iseed}
-${make_map_only}
-
 ${G_fwhm}
-
 ${lmax}
 
 ${do_rotate}
@@ -169,10 +138,4 @@ ${add_noise}
 ${epsil}
 EOF
 fi
-#epsilfile="epsil_ok"${Ok}".data"
-#eigenfile="epsil_ok"${Ok}".eigen"
-#mv epsilplot.data ${epsilfile}
-#mv epsil.eigen ${eigenfile}
 echo 'DONE'
-
-
