@@ -185,7 +185,7 @@ CONTAINS
       endif
 
       if ( evalue_cut_in%STRATEGY == S_NONE ) then
-         n_evalues = npix
+         n_evalues = count(D > 0.0_dp)
          evalue_min=0.0_dp
       else
          if ( evalue_cut_in%STRATEGY == S_CONDITIONING ) then 
