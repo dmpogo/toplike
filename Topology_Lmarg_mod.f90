@@ -15,7 +15,7 @@ MODULE Topology_Lmarg_mod
   CONTAINS
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! High level wrappers - they use only static global CTpp_evec/eval/lm 
+! High level wrappers - they use only static global CTpp_eval/lm 
 ! Can be safely called from outside of the module without prelim set up
 ! All of them set CTpp and CNTpp=(CTpp+N)^-1 as byproduct
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -23,7 +23,8 @@ MODULE Topology_Lmarg_mod
      SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
      real(DP), intent(out) :: ampl_best,ang(3),LnL_max
 ! Works on global CTpp_cplm and CTpp_eval, 
-! produces cut sky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude and angles
+! produces at best angles cut sky CTpp at unit amplitude
+! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
 
      integer(I4B)      :: iter,i
      real(DP)          :: tolerance=1.d-5
@@ -62,8 +63,8 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(out)   ::  ampl_best,LnL_max
 
 ! Works on global CTpp_cplm and CTpp_eval, 
-! produces cutsky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude after rot
-
+! produces after rotation cutsky CTpp at unit amplitude
+! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
      real(DP), dimension(3)  ::  u
      logical                 ::  ifsuccess
 
@@ -78,17 +79,10 @@ MODULE Topology_Lmarg_mod
      SUBROUTINE FIND_BEST_AMPLITUDE(ampl_best,LnL_max) 
      real(DP), intent(out)   :: ampl_best,LnL_max
 
-! Works on global CTpp_evec and CTpp_eval
-! produces cut sky CTpp and (Abest*C+N)^-1 in CNTpp at best amplitude
-! Corrupts CTpp_evec at reconstruction stage - stash CTpp_evec if needed again
+     real(DP), dimension(3)  :: ang=(/0.0_dp,0.0_dp,0.0_dp/)
 
-       call RECONSTRUCT_FROM_EIGENVALUES()
+       call ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
 
-! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
-       ampl_best=-1.0d0                !Ininial guess for the amplitude
-       LnL_max=LnL_bestampl(ampl_best) !Found ampl_best
-
-       return
      END SUBROUTINE FIND_BEST_AMPLITUDE
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -177,7 +171,7 @@ MODULE Topology_Lmarg_mod
 
 
      FUNCTION LnLikelihood(ampl_in)
-     !Find -Ln(Likelihood) for global CTpp and set (CTpp+N)^-1
+     !Find -Ln(Likelihood) for global CTpp and set (ampl CTpp + N)^-1
 
      REAL(DP), intent(in) :: ampl_in
                            ! CTpp, map_npp and map_signal is global input
@@ -191,7 +185,7 @@ MODULE Topology_Lmarg_mod
      REAL(DP), allocatable, dimension(:) :: eigen,WORK
      
 !   scale CTpp and add noise.
-!   Caution - only 'L' triangualr part in map_npp and thus CNTpp is valid
+!   Caution - only 'L' triangular part in map_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
        CNTpp=CNTpp+map_npp
 

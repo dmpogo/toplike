@@ -318,14 +318,13 @@ PROGRAM Topology_Lmarg
      ampl_best= 1.0d0
      GO TO 991
   ENDIF
+! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
+  allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
+  CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   if (do_rotate) then
-     ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
-     allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
-     CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
-
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
      else
@@ -348,8 +347,6 @@ PROGRAM Topology_Lmarg
   ampl_var =1.d0/sqrt(ampl_var)
   ampl_curv=1.d0/sqrt(ampl_curv)
  
-!  write(0,*) ampl_curv
-
 ! Debug output, will be written at the end of all convergence steps
   WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
   WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
