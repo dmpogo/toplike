@@ -116,7 +116,7 @@ CONTAINS
           write(0,*) 'Unable to open output ',TRIM(ADJUSTL(fake_file))
           stop
        ELSE
-          close(26)
+          close(26,status='delete')
        ENDIF
     ENDIF
     

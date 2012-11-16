@@ -57,8 +57,8 @@ all: topmarg topmap
 topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
-topmap: $(OBJMAP) $(NRECIPES) $(CTPPPROC)
-	$(FC) $(FFLAGS) -o $@ $(OBJMAP) $(LIB) $(NRECIPES) $(CTPPPROC)
+topmap: $(OBJMAP) $(CTPPPROC)
+	$(FC) $(FFLAGS) -o $@ $(OBJMAP) $(LIB) $(CTPPPROC)
 
 Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o \
 			Topology_map_mod.o basis_modes.o
@@ -75,9 +75,9 @@ basis_modes.o         : Topology_types.o
  
 .PHONY : tidy clean cleanall
 tidy:
-	-rm -f $(OBJ)
+	-rm -f $(OBJ) $(OBJMAP)
 clean: tidy
-	-rm -f topmarg
+	-rm -f topmarg topmap
 cleanall: clean
 	/bin/rm -f $(MODULEDIR1)/[!n]*.mod
 

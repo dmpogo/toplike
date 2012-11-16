@@ -129,12 +129,13 @@ PROGRAM Topology_make_map
 
 ! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
+  write(0,*)'Eigenvalue decomposition started'
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
   write(0,*)'Eigenvalue decomposition completed'
 
 !-------------------------------------------------------------------
-! Rotate full sky eigevectors in CTpp_cplm form into current CTpp_evec
+! Optionally rotate full sky eigevectors into revised CTpp_evec
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      CTpp_evec => FullSkyWorkSpace
@@ -142,7 +143,7 @@ PROGRAM Topology_make_map
      call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
      call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
      deallocate(CTpp_cplm)
-     write(0,'((a16),3(1x,e11.4))')'CTpp rotated to',ang(1),ang(2),ang(3)
+     write(0,'((a16),3(1x,e11.4))')'CTpp rotated to',ang
   endif
 
 ! make map.
