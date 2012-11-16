@@ -12,10 +12,11 @@ CONTAINS
   SUBROUTINE make_fake_map(ampl,map)
     USE beams
     USE ALM_TOOLS
-    USE RAN_TOOLS, ONLY : randgauss_boxmuller
+    USE RNGMOD
     real(DP), intent(in)                               :: ampl
     real(DP), intent(out), allocatable, dimension(:,:) :: map
 
+    type(planck_rng)        :: rng_handle
     real(DP),    allocatable, dimension(:,:)   :: random_numbers
     complex(DP), allocatable, dimension(:,:,:) :: alm
     integer(I4B)            :: i, iter_order=5
@@ -23,18 +24,17 @@ CONTAINS
     if (allocated(map)) deallocate(map)
     allocate(map(0:npix_fits-1,1:1))
 ! if we add noise, generate random full sky noise map, else set it to zero
+    call rand_init(rng_handle,iseed)
     if (add_map_noise) then
        do_Gsmooth=.false.
        do_mask=.false.
-       CALL ReadExpData(expdata_format)
+       call ReadExpData(expdata_format)
        if (npix_cut /= npix_fits) stop 'Must be full sky. Check noise masking'
 
-       allocate(random_numbers(0:npix_fits-1,1))
        do i = 0, npix_fits-1
-          random_numbers(i,1) = randgauss_boxmuller(iseed)
-          map(i,1)=random_numbers(i,1)*sqrt(map_npp(i,i))
+          map(i,1)=rand_gauss(rng_handle)*sqrt(map_npp(i,i))
        enddo
-       deallocate(random_numbers)
+       write(0,*)'random noise map has been generated'
     else
        map=0.0_dp
     endif
@@ -42,13 +42,13 @@ CONTAINS
 ! Generate random set of CTpp eigenvalues (sqrt)
     allocate(random_numbers(0:n_evalues-1,1))
     do i = 0, n_evalues - 1
-       random_numbers(i,1) = randgauss_boxmuller(iseed)
-       random_numbers(i,1) = random_numbers(i,1)*sqrt(ampl*CTpp_eval(i))
+       random_numbers(i,1) = rand_gauss(rng_handle)*sqrt(ampl*CTpp_eval(i))
     enddo
 
 ! Combine correlated and noise map on full sky
     call dgemm('N','N',npix_fits,1,n_evalues,1.0_dp,CTpp_evec,npix_fits,random_numbers,n_evalues,1.0_dp,map,npix_fits)
     deallocate(random_numbers)
+    write(0,*)'random signal map has been generated and added to noise'
 
 ! Smooth full-sky map if needed
     if (beam_fwhm > 0.0_dp) then
@@ -57,10 +57,10 @@ CONTAINS
        call map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
        call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,map(:,1))
+       write(0,*)'random map has been smoothed with Gaussian beam='
        deallocate( alm )
     endif
 
-    write(0,*)'random map has been generated'
     return
   END SUBROUTINE make_fake_map
 
@@ -121,8 +121,8 @@ CONTAINS
     ENDIF
     
     write(0,*)'Writing bintab'
-    write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nmaps, nlheader
-    CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
+    write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nlheader
+    CALL write_bintab(heal_map, npix_fits, 1, header, nlheader,TRIM(ADJUSTL(fake_file)))
     write(0,*)'Done'
 
     RETURN
@@ -146,7 +146,7 @@ CONTAINS
     USE ALM_TOOLS
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j,ordering,lcount,iter_order=5
+    INTEGER :: i,j,ordering,lcount,nmaps,iter_order=5
     logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
@@ -252,7 +252,7 @@ CONTAINS
     USE ALM_TOOLS
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j,ordering,lcount,iter_order=5
+    INTEGER :: i,j,ordering,lcount,nmaps,iter_order=5
     logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm

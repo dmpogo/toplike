@@ -80,11 +80,10 @@ PROGRAM Topology_make_map
 
   INQUIRE(file=TRIM(map_noise_file),exist=found)
   IF (found) THEN
-     add_map_noise=.true.
      WRITE(0,*) 'Using a noise file', TRIM(map_noise_file)
   ELSE
-     WRITE(0,*) 'No noise file'  ! Some formats (WMAP) do not require 
-                                 ! separate noise file, so add_noise
+     WRITE(0,*) 'No separate noise file'  ! Some formats (WMAP) do not require 
+                                 ! separate noise file, so add_map_noise
                                  ! will decide if any of the noise is used
   ENDIF
 

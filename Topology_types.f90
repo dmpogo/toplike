@@ -60,7 +60,7 @@ MODULE TOPOLOGY_TYPES
 
 ! Global numerical variables
   REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
-  INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
+  INTEGER  :: nside, npix_cut, npix_fits, lmax, iseed, nsh
   INTEGER  :: n_evalues, nmode_cut
 
 ! Control variables
