@@ -6,6 +6,7 @@ umask 0003
 
 space=I
 healpix_dir=${HEALPIX}
+expdata_format='WMAP'
 data_basedir='../Data/WMAP'
 ctpp_basedir='../Output/Spherical-'${space}'/CTpp_theory'
 fiducial_ctpp='../Output/Spherical-'${space}'/CTpp_theory/CTpp_fiducial/filename'
@@ -85,6 +86,7 @@ echo 'Starting Ok'${1}
 if [ "$2" == --screen ]; then
 ./topmarg << EOF
 ${nice_out_file}
+${expdata_format}
 ${signal_file}
 ${mask_file}
 ${beam_file}
@@ -113,6 +115,7 @@ EOF
 else
 ./topmarg 2>$run_out_file >> $short_out_file << EOF
 ${nice_out_file}
+${expdata_format}
 ${signal_file}
 ${mask_file}
 ${beam_file}

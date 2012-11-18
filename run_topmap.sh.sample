@@ -6,6 +6,7 @@ umask 0003
 
 space=I
 healpix_dir=${HEALPIX}
+expdata_format='WMAP'
 data_basedir='../Data/WMAP'
 ctpp_basedir='../Output1/Spherical-'${space}'/CTpp_theory'
 fiducial_ctpp='../Output1/Spherical-'${space}'/CTpp_theory/CTpp_fiducial/ctpp_CAMBCL_Nside16_OL0.73_Ok0.0_H71'
@@ -28,7 +29,7 @@ do_rotate='.TRUE.'
 angles='-0.2196D+01   0.6707D+00   0.3032D+01'
 lmax=40
 
-add_map_noise='.FALSE.'
+add_map_noise='.TRUE.'
 #
 # If do_smooth=TRUE  and noise_file is set 
 # we smooth noise correlation before adding matrix to CTpp
@@ -39,8 +40,7 @@ noise_file=''
 
 do_smooth='.TRUE.'
 beam_file=''
-#G_fwhm='492.0'
-G_fwhm='640.0'
+G_fwhm='492.0'
 
 
 #if set to 0 will use system clock
@@ -76,6 +76,7 @@ CTpp=${ctpp_basedir}'/CTpp/ctpp_'${space}'_Nside'${nside}'_nsh'${nsh}'_Ok'${1}${
 #Main call
 echo 'Starting Ok'${1}
 ./topmap  << EOF
+${expdata_format}
 ${signal_file}
 ${noise_file}
 ${beam_file}

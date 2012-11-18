@@ -27,7 +27,7 @@ MODULE TOPOLOGY_TYPES
   real(DP)      :: curlCl_in_mK = 1.d-2  ! 10x real to have ampl~-2
 
 ! Data
-  CHARACTER(len=6), PARAMETER                :: expdata_format='PLANCK'
+  CHARACTER(LEN=6)                           :: expdata_format='WMAP'
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask

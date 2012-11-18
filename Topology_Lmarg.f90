@@ -18,7 +18,7 @@ PROGRAM Topology_Lmarg
 
   LOGICAL :: found, do_nice_out_file
  
-  real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, ang(3)
+  real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
   CHARACTER(LEN=120) :: nice_out_file
@@ -30,6 +30,7 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') nice_out_file
 
 ! data and noise file
+  read(*,'(a)') expdata_format
   read(*,'(a)') map_signal_file
 ! Map modification files
   read(*,'(a)') map_noise_file
@@ -218,7 +219,7 @@ PROGRAM Topology_Lmarg
   else
      CALL collect_beams(Wl,lmax,reset=.true.)
   endif
-  CALL ReadExpData(expdata_format)
+  CALL ReadExpData(TRIM(ADJUSTL(expdata_format)))
   write(0,*)'Read the data in'
 
 !-------------------------------------------------------------------
@@ -291,7 +292,7 @@ PROGRAM Topology_Lmarg
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES(CTpp_eval)
+  CALL NORMALIZE_EIGENVALUES(CTpp_eval,CTpp_norm)
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
   allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
@@ -328,13 +329,14 @@ PROGRAM Topology_Lmarg
   WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
+  WRITE(0,'(a, 1pd15.7)') ' CTpp  norm   : ', CTpp_norm
   WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', ang
  
 ! Final one line answer to the standard output
-  WRITE(*,'(f7.4,6(1x,d15.7),3(1x,d12.4))')                        &
+  WRITE(*,'(f7.4,7(1x,d15.7),3(1x,d12.4))')                        &
         Ok,                                                  &
         LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
-        ampl_best,ampl_var,ampl_curv,ang
+        ampl_best,ampl_var,ampl_curv,CTpp_norm,ang
 
 ! Archive for storage in the nice commented file
   if (do_nice_out_file) then
@@ -348,6 +350,7 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
      WRITE(103,'(a, I)')'Normalization range l=2,',lnorm
      WRITE(103,'(a, 1pd15.7)')'  curlCl(mK)   :',curlCl_in_mK
+     WRITE(103,'(a, 1pd15.7)') ' CTpp  norm   : ', CTpp_norm
      close(103)
   endif
 

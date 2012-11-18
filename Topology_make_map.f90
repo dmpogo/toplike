@@ -22,6 +22,7 @@ PROGRAM Topology_make_map
 ! Read in files (even if not being used) 
 
 ! data and noise file
+  read(*,'(a)') expdata_format
   read(*,'(a)') map_signal_file
 ! Map modification files
   read(*,'(a)') map_noise_file
