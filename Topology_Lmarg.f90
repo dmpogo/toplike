@@ -292,7 +292,7 @@ PROGRAM Topology_Lmarg
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES(CTpp_eval,CTpp_norm)
+  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
   allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
