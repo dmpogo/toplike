@@ -13,7 +13,7 @@ PROGRAM Topology_make_map
 
   LOGICAL :: found
  
-  real(DP)     :: ampl, ang(3)
+  real(DP)     :: ampl, ang(3), CTpp_norm
   real(DP),    allocatable, dimension(:,:)   :: map
 
 !------------------------------------------------------------------------
@@ -132,7 +132,8 @@ PROGRAM Topology_make_map
   write(0,*)'Eigenvalue decomposition started'
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-  write(0,*)'Eigenvalue decomposition completed'
+  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
+  write(0,*)'Eigenvalue decomposition completed, scaled by ',CTpp_norm
 
 !-------------------------------------------------------------------
 ! Optionally rotate full sky eigevectors into revised CTpp_evec
