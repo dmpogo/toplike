@@ -72,13 +72,15 @@ CONTAINS
     !-----------------------------------------------------------------------
     INTEGER, PARAMETER :: nlheader = 80
     CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
-    INTEGER :: iostatus
+    INTEGER :: iostatus, npix_loc, nside_loc
     REAL    :: nullval
     LOGICAL :: anynull,filefound
 
     !heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
+    npix_loc =size(heal_map,1)
+    nside_loc=npix2nside(npix_loc)
 
-    CALL write_minimal_header(header,'MAP',nside=16,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='muK',nlmax=lmax)
+    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax)
 !    CALL add_card(header,'COMMENT','-----------------------------------------------')
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
@@ -96,8 +98,8 @@ CONTAINS
     ENDIF
     
     write(0,*)'Writing bintab'
-    write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nlheader
-    CALL write_bintab(heal_map, npix_fits, 1, header, nlheader,TRIM(ADJUSTL(fake_file)))
+    write(0,*)size(heal_map,1),size(heal_map,2),npix_loc,nlheader
+    CALL write_bintab(heal_map, npix_loc, 1, header, nlheader,TRIM(ADJUSTL(fake_file)))
     write(0,*)'Done'
 
     RETURN
@@ -295,7 +297,9 @@ CONTAINS
     endif
 
     ALLOCATE(map_mask(0:npix_fits-1))
-    map_mask = ( exp_mask(:,1) > 0.9_dp ) 
+    ! This threshold interplace with one in REBIN, if mask is not scaled to 0-1
+    ! It was introduced to work agains smoothing of masked map issues
+    map_mask = ( exp_mask(:,1) > 0.5_dp )
     DEALLOCATE(exp_mask)
 
 ! Count unmasked pixels 
@@ -362,6 +366,7 @@ CONTAINS
 
     real(DP), dimension(:,:),allocatable :: work
     real(DP), parameter                  :: good_fraction=0.1_dp
+    real(DP), parameter                  :: BAD_PIXEL=-1.6375d30
     integer(I4B)                         :: nsidein,nsideout
     logical,  dimension(:,:),allocatable :: mask
 
@@ -371,12 +376,12 @@ CONTAINS
 
     ! Output is the masked, rebinned, noise weighted data, noise and mask. 
     ! Rebin sets valid data to any big pixel that had at least one good highres
-    ! Rebined mask is proportional to the frac of good highres pixel in lowres.
+    ! Rebined mask is equal the fraction of good highres pixel in a lowres.
     if (do_mask) then
        ! We need to prepare the missing values in data and noise
        allocate( mask(0:npixin-1,1:1) )
-       mask = ( exp_mask <  0.5_dp )
-       where( mask ) exp_data=-1.6375d30  ! mark masked pixels as bad
+       mask = ( exp_mask <  0.5_dp )      ! Input should be 0 or 1
+       where( mask ) exp_data=BAD_PIXEL   ! mark masked pixels as bad
 
        ! Now we degrade the mask itself
        work = exp_mask
@@ -391,12 +396,13 @@ CONTAINS
 
        ! Noise is coadded in inverse
        work=1.0_dp/exp_noise
-       if ( do_mask ) where( mask ) work=-1.6375d30 ! mark bad pixels
+       if ( do_mask ) where( mask ) work=BAD_PIXEL ! mark bad pixels
        call REBIN_FULL_SKY_WORK_TO(exp_noise)
        ! reweight the data with inverse averaged noise
        exp_data=exp_data/exp_noise
        ! The noise is extensive quantity, undo averaging with final inverse
        exp_noise=(real(npixout,DP)/real(npixin,DP))/exp_noise
+       if ( do_mask ) where( mask ) exp_noise=exp_noise/exp_mask
     else
        work = exp_data
        call REBIN_FULL_SKY_WORK_TO(exp_data)
@@ -406,14 +412,31 @@ CONTAINS
 
     if ( do_mask ) then
        where ( exp_mask < good_fraction )
-          exp_data = 0.0_dp
+          exp_data = BAD_PIXEL
           exp_noise= 0.0_dp
+          exp_mask = 0.0_dp
+       elsewhere
+          exp_mask = 1.0_dp
        end where
     endif
 
-!    fake_file='ttt_0.1_sharp'
-!    call Write_map(exp_data)
-!    return
+    if ( DEBUG .and. STORE_REBINNED_MAPS ) then
+       write(0,*)'Rebinned maps stored in default localtion'
+       fake_file='rebinned_cmb.fits'
+       call Write_map(exp_data)
+       if ( add_noise ) then
+          fake_file='rebinned_noise.fits'
+          call Write_map(exp_noise)
+       endif
+       if ( do_mask ) then
+          fake_file='rebinned_mask.fits'
+          call Write_map(exp_mask)
+          write(0,*)count(exp_mask > 0.5),' good pixels'
+       endif
+       if ( STOP_AFTER_STORING_REBINNED_MAPS ) stop
+    endif
+
+    return
 
     CONTAINS
         SUBROUTINE REBIN_FULL_SKY_WORK_TO(map_out)
