@@ -76,7 +76,7 @@ CONTAINS
     REAL    :: nullval
     LOGICAL :: anynull,filefound
 
-    !heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
+    !heal_map(:,1) = unpack(map_signal,map_mask,-1.6375d30)
     npix_loc =size(heal_map,1)
     nside_loc=npix2nside(npix_loc)
 
@@ -181,6 +181,7 @@ CONTAINS
 ! data is in, now process it and store in global arrays
 
 !Smooth and pack the signal.
+
     ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_Gsmooth) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
@@ -235,8 +236,8 @@ CONTAINS
     logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
-    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask
+    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise, WORK
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
     
 ! Input must be full-sky in globally accessible files
     npix=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
@@ -299,7 +300,8 @@ CONTAINS
     ALLOCATE(map_mask(0:npix_fits-1))
     ! This threshold interplace with one in REBIN, if mask is not scaled to 0-1
     ! It was introduced to work agains smoothing of masked map issues
-    map_mask = ( exp_mask(:,1) > 0.5_dp )
+    ! to mask edge pixels - that's why a bit over 50% is a good criterium
+    map_mask = ( exp_mask(:,1) >= 0.6_dp )
     DEALLOCATE(exp_mask)
 
 ! Count unmasked pixels 
@@ -307,8 +309,56 @@ CONTAINS
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
 
-
 ! data is in, now process it and store in global arrays
+
+!Smooth and pack the signal.
+!    if (do_Gsmooth) then
+!       ALLOCATE ( bpp(0:npix_fits-1,0:npix_fits-1) )
+!       call create_beam(bpp,Wl(:,1),lmax,nside=nside)
+!       call weight_beam(bpp,1)
+
+       ! Cut sky weighting (seems like after pixel weightening ?)
+!       do j=0,npix_fits-1
+!          bpp(:,j) = bpp(:,j)/sum(bpp(:,j),mask=map_mask)
+!       enddo
+!       bpp = bpp*(FOURPI*npix_cut/npix_fits)
+
+!       do j=0,npix_fits-1
+!          bpp(:,j) = pack(bpp(:,j),map_mask)
+!       enddo
+!       do i=0,npix_fits-1
+!          bpp(i,:) = pack(bpp(i,:),map_mask)
+!       enddo
+
+!    endif
+
+!    ALLOCATE(map_signal(0:npix_cut-1))
+!    IF (do_Gsmooth) THEN
+!       allocate(WORK(0:npix_cut-1))
+!       WORK = pack(exp_data(:,1),map_mask)
+!       call DGEMV('T',npix_cut,npix_cut,1.d0,bpp,npix_fits,WORK,1,0.d0,map_signal,1)
+!    fake_file='ppp_0.1_0.7'
+!    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
+!    call Write_map(exp_data)
+!    stop
+!    ELSE
+!       map_signal = pack(exp_data(:,1),map_mask)
+!    ENDIF
+!    DEALLOCATE(exp_data)
+
+
+!Smooth noise if needed and store it in a cut sky matrix map_npp
+!    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+!    IF (add_noise.and.do_Gsmooth) THEN
+!       WORK = pack(exp_noise(:,1),map_mask)
+!       do i=0,npix_cut-1
+!          bpp(i,:)=sqrt(WORK(i))*bpp(i,:)
+!       enddo
+!       call DGEMM('T','N',npix_cut,npix_cut,npix_cut,1.d0,bpp,npix_fits,bpp,npix_fits,0.d0,map_npp,npix_cut)
+!       deallocate(WORK)
+!    ELSE
+!       map_npp=0.0_dp
+!    ENDIF
 
 !Smooth and pack the signal.
     ALLOCATE(map_signal(0:npix_cut-1))
@@ -317,10 +367,6 @@ CONTAINS
        call map2alm_iterative(nside,lmax,lmax,iter_order,exp_data,alm,(/0.0_dp, 0.0_dp/),w8ring)
        call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,exp_data(:,1))
-!    fake_file='ppp_0.1_0.8'
-!    where( .not.map_mask ) exp_data(:,1)=-1.6375d30
-!    call Write_map(exp_data)
-!    stop
        map_signal = pack(exp_data(:,1),map_mask)
        DEALLOCATE(alm)
     ELSE
@@ -412,11 +458,9 @@ CONTAINS
 
     if ( do_mask ) then
        where ( exp_mask < good_fraction )
-          exp_data = BAD_PIXEL
+          exp_data = 0.0_dp ! we zero rather than BAD_PIXEL for smoothing
           exp_noise= 0.0_dp
           exp_mask = 0.0_dp
-       elsewhere
-          exp_mask = 1.0_dp
        end where
     endif
 
@@ -431,7 +475,7 @@ CONTAINS
        if ( do_mask ) then
           fake_file='rebinned_mask.fits'
           call Write_map(exp_mask)
-          write(0,*)count(exp_mask > 0.5),' good pixels'
+          write(0,*)count(exp_mask > good_fraction),' good pixels'
        endif
        if ( STOP_AFTER_STORING_REBINNED_MAPS ) stop
     endif
