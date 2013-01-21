@@ -289,7 +289,8 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(out), dimension(:,:) :: p
      real(DP), intent(out), dimension(:)   :: y
 
-     real(DP) :: st_ang=sqrt(2.0_dp)-1.0_dp, sq3=sqrt(3.0_dp)
+     real(DP) :: st_ang=sqrt(2.0_dp)-1.0_dp, sq3=sqrt(3.0_dp), st_ang2
+     real(DP) :: u(3), u2
      integer  :: i 
 
          ! Amoeba start in terms of Euler angles
@@ -303,12 +304,23 @@ MODULE Topology_Lmarg_mod
 !        p(:,3) = (/ 0.0_dp, 0.5_dp*sq3,   0.0_dp,    -0.5_dp /) 
 
         ! S3 coordinates of amoeba aligned with coordinate axes
-        p(:,1) = (/ 0.0_dp, 0.0_dp,  0.0_dp, 1.0_dp /)
-        p(:,2) = (/ 0.0_dp, 0.0_dp,  1.0_dp, 0.0_dp /) 
-        p(:,3) = (/ 0.0_dp, 1.0_dp,  0.0_dp, 0.0_dp /) 
+!        p(:,1) = (/ 0.0_dp, 0.0_dp,  0.0_dp, 1.0_dp /)
+!        p(:,2) = (/ 0.0_dp, 0.0_dp,  1.0_dp, 0.0_dp /) 
+!        p(:,3) = (/ 0.0_dp, 1.0_dp,  0.0_dp, 0.0_dp /) 
+!        p = p*st_ang*0.3
 
-
-        p = p*st_ang
+        ! Random project S3 simplex
+        st_ang2=st_ang**2
+        i=0
+        do
+          call random_number(u)
+          u = 2.0_dp*(u - 0.5_dp)
+          u2 = dot_product(u,u)
+          if (u2 > st_ang2) cycle
+          i=i+1
+          p(i,:)=u
+          if (i == 4) exit
+        enddo
 
         do i=1,4
            y(i)=LnLrotated_at_best_amplitude(p(i,:))

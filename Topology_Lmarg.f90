@@ -21,7 +21,8 @@ PROGRAM Topology_Lmarg
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
-  CHARACTER(LEN=120) :: nice_out_file
+  integer(I4B)                          :: iter, niter
+  CHARACTER(LEN=255) :: nice_out_file
 
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
@@ -46,6 +47,7 @@ PROGRAM Topology_Lmarg
   read(*,*) do_nice_out_file
 ! Read in parameters
   read(*,*) nside
+! Next four parameters are strictly for printout
   read(*,*) nsh
   read(*,*) OmegaL
   read(*,*) H0
@@ -57,6 +59,7 @@ PROGRAM Topology_Lmarg
   read(*,*) do_rotate
   read(*,*) ang(1),ang(2),ang(3)
   read(*,*) find_best_angles
+  read(*,*) niter
 
   read(*,*) add_noise
   read(*,*) epsil
@@ -226,7 +229,7 @@ PROGRAM Topology_Lmarg
 ! Allocate global working array for full sky manipulations
   allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
 
-! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
+! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
   if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
   else
@@ -297,6 +300,7 @@ PROGRAM Topology_Lmarg
   allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
+  do iter=1,niter
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   if (do_rotate) then
@@ -337,6 +341,8 @@ PROGRAM Topology_Lmarg
         Ok,                                                  &
         LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
         ampl_best,ampl_var,ampl_curv,CTpp_norm,ang
+
+  enddo
 
 ! Archive for storage in the nice commented file
   if (do_nice_out_file) then
