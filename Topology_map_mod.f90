@@ -238,6 +238,7 @@ CONTAINS
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
     REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise, WORK
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
+    REAL(DP), DIMENSION(0:3)              :: mpoles
     
 ! Input must be full-sky in globally accessible files
     npix=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
@@ -252,7 +253,7 @@ CONTAINS
     ALLOCATE(exp_data(0:npix-1,1:1))
     WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
     CALL input_map(TRIM(ADJUSTL(map_signal_file)),exp_data,npix,1)
-    exp_data=exp_data/1.0d3      ! convert to mK, assuming input is in muK
+    exp_data=exp_data*expdata_scale   ! convert to mK, from whatever input is
 
 
     IF( add_noise) THEN
@@ -261,8 +262,8 @@ CONTAINS
        ! and wmap_data to contain noise per pixel in same units as map
        WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
        CALL input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix,1)
-       exp_noise=exp_noise/1.0d3   ! convert to mK, assuming it is in muK
-       exp_noise=exp_noise**2      ! make the variance
+       exp_noise=exp_noise*expdata_scale  ! convert to mK
+       exp_noise=exp_noise**2             ! make the variance
     ELSE
        ALLOCATE(exp_noise(0:npix_fits-1,1:1))
        exp_noise = 0.0_dp
@@ -311,60 +312,58 @@ CONTAINS
 
 ! data is in, now process it and store in global arrays
 
-!Smooth and pack the signal.
-!    if (do_Gsmooth) then
-!       ALLOCATE ( bpp(0:npix_fits-1,0:npix_fits-1) )
-!       call create_beam(bpp,Wl(:,1),lmax,nside=nside)
-!       call weight_beam(bpp,1)
+! Smooth and pack the signal.
+    if (.false.) then       ! Hack: hard choice of real space smoothing
+    if (do_Gsmooth) then
+       ALLOCATE ( bpp(0:npix_fits-1,0:npix_fits-1) )
+       call create_beam(bpp,Wl(:,1),lmax,nside=nside)
+       call weight_beam(bpp,1)
 
        ! Cut sky weighting (seems like after pixel weightening ?)
-!       do j=0,npix_fits-1
-!          bpp(:,j) = bpp(:,j)/sum(bpp(:,j),mask=map_mask)
-!       enddo
-!       bpp = bpp*(FOURPI*npix_cut/npix_fits)
+       do j=0,npix_fits-1
+          bpp(:,j) = bpp(:,j)/sum(bpp(:,j),mask=map_mask)
+       enddo
+       bpp = bpp*(FOURPI*npix_cut/npix_fits)
 
-!       do j=0,npix_fits-1
-!          bpp(:,j) = pack(bpp(:,j),map_mask)
-!       enddo
-!       do i=0,npix_fits-1
-!          bpp(i,:) = pack(bpp(i,:),map_mask)
-!       enddo
+       do j=0,npix_fits-1
+          bpp(:,j) = pack(bpp(:,j),map_mask)
+       enddo
+       do i=0,npix_fits-1
+          bpp(i,:) = pack(bpp(i,:),map_mask)
+       enddo
 
-!    endif
+    endif
 
-!    ALLOCATE(map_signal(0:npix_cut-1))
-!    IF (do_Gsmooth) THEN
-!       allocate(WORK(0:npix_cut-1))
-!       WORK = pack(exp_data(:,1),map_mask)
-!       call DGEMV('T',npix_cut,npix_cut,1.d0,bpp,npix_fits,WORK,1,0.d0,map_signal,1)
-!    fake_file='ppp_0.1_0.7'
-!    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
-!    call Write_map(exp_data)
-!    stop
-!    ELSE
-!       map_signal = pack(exp_data(:,1),map_mask)
-!    ENDIF
-!    DEALLOCATE(exp_data)
-
+    ALLOCATE(map_signal(0:npix_cut-1))
+    IF (do_Gsmooth) THEN
+       allocate(WORK(0:npix_cut-1))
+       WORK = pack(exp_data(:,1),map_mask)
+       call DGEMV('T',npix_cut,npix_cut,1.d0,bpp,npix_fits,WORK,1,0.d0,map_signal,1)
+    ELSE
+       map_signal = pack(exp_data(:,1),map_mask)
+    ENDIF
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
-!    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-!    IF (add_noise.and.do_Gsmooth) THEN
-!       WORK = pack(exp_noise(:,1),map_mask)
-!       do i=0,npix_cut-1
-!          bpp(i,:)=sqrt(WORK(i))*bpp(i,:)
-!       enddo
-!       call DGEMM('T','N',npix_cut,npix_cut,npix_cut,1.d0,bpp,npix_fits,bpp,npix_fits,0.d0,map_npp,npix_cut)
-!       deallocate(WORK)
-!    ELSE
-!       map_npp=0.0_dp
-!    ENDIF
+    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+    IF (add_noise.and.do_Gsmooth) THEN
+       WORK = pack(exp_noise(:,1),map_mask)
+       do i=0,npix_cut-1
+          bpp(i,:)=sqrt(WORK(i))*bpp(i,:)
+       enddo
+       call DGEMM('T','N',npix_cut,npix_cut,npix_cut,1.d0,bpp,npix_fits,bpp,npix_fits,0.d0,map_npp,npix_cut)
+       deallocate(WORK)
+    ELSE
+       map_npp=0.0_dp
+    ENDIF
 
-!Smooth and pack the signal.
+    else      ! Hack:   to choose lm smoothing
+
     ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_Gsmooth) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
        call map2alm_iterative(nside,lmax,lmax,iter_order,exp_data,alm,(/0.0_dp, 0.0_dp/),w8ring)
+       write(0,*) alm(1:1,0:1,0:1)
+       ! alm(1:1,0:1,0:1) = cmplx(0.0_dp,0.0_dp)
        call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,exp_data(:,1))
        map_signal = pack(exp_data(:,1),map_mask)
@@ -372,11 +371,9 @@ CONTAINS
     ELSE
        map_signal = pack(exp_data(:,1),map_mask)
     ENDIF
-    DEALLOCATE(exp_data)
-
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
-    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+   ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
     IF (add_noise.and.do_Gsmooth) THEN
        call getclm(clm, lcount, exp_noise, npix_fits, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, Wl(:,1), lmax)
@@ -384,6 +381,20 @@ CONTAINS
     ELSE
        map_npp=0.0_dp
     ENDIF
+
+    endif         ! End the Hack
+
+! Subtract monopole and dipole
+    allocate(WORK(0:npix_fits-1))
+    WORK = unpack(map_signal,map_mask,-1.6375d30)
+    call remove_dipole(nside,WORK,1,2,mpoles,(/0._dp,0._dp/))
+    map_signal = pack(WORK,map_mask)
+    deallocate(WORK)
+
+!    fake_file='ppp_0.1_0.1_rs'
+!    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
+!    call Write_map(exp_data)
+    DEALLOCATE(exp_data)
 
 ! diagonal noise needs always to be defined, although may be zero
     ALLOCATE(diag_noise(0:npix_cut-1))
@@ -461,6 +472,8 @@ CONTAINS
           exp_data = 0.0_dp ! we zero rather than BAD_PIXEL for smoothing
           exp_noise= 0.0_dp
           exp_mask = 0.0_dp
+       elsewhere
+!          exp_mask = 1.0_dp
        end where
     endif
 

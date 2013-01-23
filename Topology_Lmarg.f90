@@ -32,6 +32,7 @@ PROGRAM Topology_Lmarg
 
 ! data and noise file
   read(*,'(a)') expdata_format
+  read(*,*)     expdata_scale
   read(*,'(a)') map_signal_file
 ! Map modification files
   read(*,'(a)') map_noise_file

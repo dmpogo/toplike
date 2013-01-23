@@ -34,6 +34,7 @@ MODULE TOPOLOGY_TYPES
 
 ! Data
   CHARACTER(LEN=6)                           :: expdata_format='WMAP'
+  REAL(DP)                                   :: expdata_scale=1.0_dp
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
