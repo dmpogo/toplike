@@ -16,13 +16,13 @@ PROGRAM Topology_Lmarg
   USE PIX_TOOLS
   IMPLICIT NONE
 
-  LOGICAL :: found, do_nice_out_file
+  LOGICAL :: found, do_nice_out_file, random_angles
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
-  integer(I4B)                          :: iter, niter
-  CHARACTER(LEN=255) :: nice_out_file
+  integer(I4B)                          :: iter, niter, seed_size
+  CHARACTER(LEN=255) :: nice_out_file, inputline
 
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
@@ -58,14 +58,19 @@ PROGRAM Topology_Lmarg
   read(*,*) lmax
 
   read(*,*) do_rotate
-  read(*,*) ang(1),ang(2),ang(3)
+  read(*,'(a)') inputline
+  write(0,*) inputline
   read(*,*) find_best_angles
   read(*,*) niter
+  read(*,*) iseed
 
   read(*,*) add_noise
   read(*,*) epsil
 
 !======================================================================
+
+  call random_seed(seed_size)
+  call random_seed(put=iseed+37*(/ (iter-1, iter=1,seed_size) /))
 
   IF (beam_fwhm == 0.0) THEN
      do_Gsmooth=.FALSE.
@@ -102,12 +107,12 @@ PROGRAM Topology_Lmarg
 
   INQUIRE(file=TRIM(beam_file),exist=do_expsmooth)
   WRITE(0,*) 'CTpp smoothed by:'
-  WRITE(0,*) '     - Pixle window:', nside 
+  WRITE(0,*) '     - Pixel window:', nside 
   IF (do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
-     WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
+     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
   ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-     WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
+     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
   ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
   ENDIF
@@ -164,12 +169,12 @@ PROGRAM Topology_Lmarg
     WRITE(103,'(1Xa,F9.4)')'H0     :', H0
 
     WRITE(103,'(1Xa)') 'CTpp smoothed by:'
-    WRITE(103,'(1Xa,I4)') '     - Pixle window:', nside 
+    WRITE(103,'(1Xa,I4)') '     - Pixel window:', nside 
     IF (do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
-       WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
+       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
     ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-       WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
+       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
     ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
     ENDIF
@@ -204,7 +209,14 @@ PROGRAM Topology_Lmarg
        IF(find_best_angles) THEN
           WRITE(103,'(1Xa,1XL1)')'find_best_angles :', find_best_angles
        ELSE
-          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+          if ( index(inputline,'random') /= 0 ) then
+             random_angles=.true.
+             WRITE(103,'(1Xa)')'Rotating to random angles'
+          else
+             random_angles=.false.
+             read(inputline,*)ang
+             WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+          endif 
        ENDIF
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
@@ -308,7 +320,7 @@ PROGRAM Topology_Lmarg
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
      else
-        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
+        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom=.true.)
      endif
   else
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
@@ -338,7 +350,7 @@ PROGRAM Topology_Lmarg
   WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', ang
  
 ! Final one line answer to the standard output
-  WRITE(*,'(f7.4,7(1x,d15.7),3(1x,d12.4))')                        &
+  WRITE(*,'(f9.4,7(1x,d15.7),3(1x,d12.4))')                        &
         Ok,                                                  &
         LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
         ampl_best,ampl_var,ampl_curv,CTpp_norm,ang

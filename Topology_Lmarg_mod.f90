@@ -58,18 +58,44 @@ MODULE Topology_Lmarg_mod
      END SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE
 
 
-     SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
-     real(DP), intent(in)    ::  ang(3)
-     real(DP), intent(out)   ::  ampl_best,LnL_max
+     SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom)
+     real(DP), intent(inout)        :: ang(3)
+     real(DP), intent(out)          :: ampl_best,LnL_max
+     logical,  intent(in), optional :: ifrandom
 
 ! Works on global CTpp_cplm and CTpp_eval, 
 ! produces after rotation cutsky CTpp at unit amplitude
 ! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
-     real(DP), dimension(3)  ::  u
-     logical                 ::  ifsuccess
+     real(DP)  :: st_ang2=3.0_dp-2.0_dp*sqrt(2.0_dp)
+     real(DP)  :: u(3),u2,q(0:3),spsi,stheta
+     logical   :: ifsuccess
 
        ampl=-1.0d0
-       call angles_to_projectedS3(ang,u,ifsuccess)
+       if ( present(ifrandom) .and. ifrandom ) then
+          do
+            call random_number(u)
+
+            !u = 2.0_dp*(u - 0.5_dp)
+            !u2 = dot_product(u,u)
+            !if (u2 > st_ang2) cycle
+
+            q(0:1)=2.0_dp*u(1:2)-1.0_dp
+            q(2)=cos(u(3)*PI)           
+            q(3)=sin(u(3)*PI)           
+            spsi=sqrt(1.0_dp-q(0)**2)
+            stheta=sqrt(1.0_dp-q(1)**2)
+            q(2:3)=q(2:3)*stheta
+            q(1:3)=q(1:3)*spsi
+            call quartenion_to_projectedS3(q,u,ifsuccess)
+
+            if ( ifsuccess ) then 
+               call projectedS3_to_angles(u,ang,ifsuccess)
+               exit
+            endif
+          enddo
+       else
+          call angles_to_projectedS3(ang,u,ifsuccess)
+       endif
 
        LnL_max=LnLrotated_at_best_amplitude(u)
        ampl_best=ampl
@@ -307,9 +333,9 @@ MODULE Topology_Lmarg_mod
 !        p(:,1) = (/ 0.0_dp, 0.0_dp,  0.0_dp, 1.0_dp /)
 !        p(:,2) = (/ 0.0_dp, 0.0_dp,  1.0_dp, 0.0_dp /) 
 !        p(:,3) = (/ 0.0_dp, 1.0_dp,  0.0_dp, 0.0_dp /) 
-!        p = p*st_ang*0.3
+!        p = p*st_ang
 
-        ! Random project S3 simplex
+        ! Random projected S3 simplex (except first no rotation point)
         st_ang2=st_ang**2
         i=0
         do
@@ -413,5 +439,103 @@ MODULE Topology_Lmarg_mod
      ifsuccess = .true.
      return
      END SUBROUTINE angles_to_projectedS3
+
+     SUBROUTINE projectedS3_to_quartenion(u,q,ifsuccess)
+     real(DP), intent(in),  dimension(3)   :: u   ! Projected S3 cartezian
+     real(DP), intent(out), dimension(0:3) :: q   ! quartenion
+     logical,  intent(out)                 :: ifsuccess
+
+     real(DP)  :: u2, DDOT
+
+     u2 = DDOT(3,u,1,u,1)
+     if (u2 > 1.0_dp) then
+        ifsuccess = .false.
+        return
+     endif
+     q(0)   = (1.0_dp-u2)/(1.0_dp+u2)
+     q(1:3) = (2.0_dp/(1.0_dp+u2))*u(1:3)
+
+     ifsuccess = .true.
+     return
+
+     END SUBROUTINE projectedS3_to_quartenion
+
+     SUBROUTINE quartenion_to_angles(q,ang)
+     real(DP), intent(in),  dimension(0:3) :: q   ! quartenion
+     real(DP), intent(out), dimension(3)   :: ang ! Euler angles
+
+     real(DP)  :: q03, q12, ppf, pmf
+
+     ! from quartenion to Euler angles,
+     ! ang=(phi,theta,psi) in Healpix ZYZ (fix axis) convention
+
+     q03 = sqrt(q(0)**2 + q(3)**2)
+     q12 = sqrt(q(1)**2 + q(2)**2)
+     ang(2) = 2.0_dp*acos(q03)
+
+     if (q03 > q12) then
+        ppf = acos(q(0)/q03) 
+        if ( q12 < 1.0d-6 ) then
+           pmf = 0.0_dp
+        else
+           pmf = atan2(q(1),q(2))
+        endif
+     else
+        pmf = acos(q(2)/q12)
+        if ( q03 < 1.0d-6) then
+           ppf = 0.0_dp
+        else
+           ppf = atan2(q(3),q(0))
+        endif
+     endif
+
+     ang(1) = ppf - pmf
+     ang(3) = ppf + pmf
+
+     return
+     END SUBROUTINE quartenion_to_angles
+
+     SUBROUTINE angles_to_quartenion(ang,q)
+     real(DP), intent(in),  dimension(3)   :: ang
+     real(DP), intent(out), dimension(0:3) :: q
+
+     real(DP)  :: ppf,pmf,cost2,sint2,cosppf,sinppf,cospmf,sinpmf
+
+     ppf = 0.5_dp*(ang(1)+ang(3))
+     pmf = 0.5_dp*(ang(3)-ang(1))
+     cost2  = cos(ang(2)/2.0_dp)
+     sint2  = sin(ang(2)/2.0_dp)
+     cosppf = cos(ppf)
+     sinppf = sin(ppf)
+     cospmf = cos(pmf)
+     sinpmf = sin(pmf)
+     
+     q(0) = cost2*cosppf
+     q(1) = sint2*sinpmf
+     q(2) = sint2*cospmf
+     q(3) = cost2*sinppf
+
+     return
+
+     END SUBROUTINE angles_to_quartenion
+
+     SUBROUTINE quartenion_to_projectedS3(q,u,ifsuccess)
+     real(DP), intent(in),  dimension(0:3) :: q
+     real(DP), intent(out), dimension(3)   :: u
+     logical,  intent(out)                 :: ifsuccess
+
+     real(DP)  :: u2plus1
+
+     if ( q(0) < 0.0_dp ) then
+        write(0,*)'quartenion do not correspond to northen semisphere of S3'
+        ifsuccess = .false.
+     endif
+ 
+     u2plus1 = 2.0_dp/(1.0_dp+q(0))
+     u(1:3) = q(1:3)/u2plus1
+
+     ifsuccess = .true.
+     return
+     END SUBROUTINE quartenion_to_projectedS3
 
 END MODULE Topology_Lmarg_mod
