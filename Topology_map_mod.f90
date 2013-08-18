@@ -154,12 +154,11 @@ CONTAINS
     endif
 
     ALLOCATE(wmap_noise(0:npix_fits-1,1:1))
+    wmap_noise = 0.0_dp
     IF( add_noise .and. nmaps > 1 ) THEN
        ! Assumes diagonal noise, 
        ! and wmap_data to contain inverse noise in the last map
        where( wmap_data(:,nmaps) > 0.0 ) wmap_noise(:,1) = 1.d0/wmap_data(:,nmaps)
-    ELSE
-       wmap_noise = 0.0_dp
     ENDIF
 
     ALLOCATE(map_mask(0:npix_fits-1))
@@ -391,10 +390,11 @@ CONTAINS
     map_signal = pack(WORK,map_mask)
     deallocate(WORK)
 
-!    fake_file='ppp_0.1_0.1_rs'
-!    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
-!    call Write_map(exp_data)
+    fake_file='ppp_smica_0.1_0.6'
+    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
+    call Write_map(exp_data)
     DEALLOCATE(exp_data)
+    stop
 
 ! diagonal noise needs always to be defined, although may be zero
     ALLOCATE(diag_noise(0:npix_cut-1))
