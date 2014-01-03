@@ -3,168 +3,85 @@ MODULE Topology_map_mod
   USE FITSTOOLS
   USE HEAD_FITS
   USE PIX_TOOLS
-  USE RAN_TOOLS, ONLY : randgauss_boxmuller
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, WriteWmap_map, ReadExpData
+  PUBLIC :: make_fake_map, Write_map, ReadExpData
   
 CONTAINS
 
-  SUBROUTINE make_fake_map(ampl)
-    REAL(DP), INTENT(IN)                  ::ampl
+  SUBROUTINE make_fake_map(ampl,map)
+    ! Works on eigenvalue decomposition of CTpp in CTpp_eval and CTpp_evec
+    USE beams
+    USE ALM_TOOLS
+    USE RNGMOD
+    real(DP), intent(in)                               :: ampl
+    real(DP), intent(out), allocatable, dimension(:,:) :: map
 
-    REAL(DP), DIMENSION(0:npix_cut*10-1)  :: ework
-    REAL(DP), DIMENSION(0:npix_cut-1)     :: evals
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: matb
-    REAL(DP), DIMENSION(:), ALLOCATABLE   :: map_cut
-    INTEGER :: INFO,i,iring,j
+    type(planck_rng)        :: rng_handle
+    real(DP),    allocatable, dimension(:,:)   :: random_numbers
+    complex(DP), allocatable, dimension(:,:,:) :: alm
+    integer(I4B)            :: i, iter_order=5
+ 
+    if (allocated(map)) deallocate(map)
+    allocate(map(0:npix_fits-1,1:1))
+! if we add noise, generate random full sky noise map, else set it to zero
+    call rand_init(rng_handle,iseed)
+    if (add_map_noise) then
+       do_Gsmooth=.false.
+       do_mask=.false.
+       call ReadExpData(expdata_format)
+       if (npix_cut /= npix_fits) stop 'Must be full sky. Check noise masking'
 
+       do i = 0, npix_fits-1
+          map(i,1)=rand_gauss(rng_handle)*sqrt(map_npp(i,i))
+       enddo
+       write(0,*)'random noise map has been generated'
+    else
+       map=0.0_dp
+    endif
 
-    REAL(DP), ALLOCATABLE, DIMENSION(:) :: WORKNEL,D
-    REAL(DP), ALLOCATABLE, DIMENSION(:,:) :: U,VT
-!    GOTO 696
+! Generate random set of CTpp eigenvalues (sqrt)
+    allocate(random_numbers(0:n_evalues-1,1))
+    do i = 0, n_evalues - 1
+       random_numbers(i,1) = rand_gauss(rng_handle)*sqrt(ampl*CTpp_eval(i))
+    enddo
 
-    IF(iseed == 0) THEN
-       CALL SYSTEM_CLOCK(count = iseed)
-       IF (MOD(iseed, 2) .EQ. 0) iseed = iseed + 1
-    ENDIF
+! Combine correlated and noise map on full sky
+    call dgemm('N','N',npix_fits,1,n_evalues,1.0_dp,CTpp_evec,npix_fits,random_numbers,n_evalues,1.0_dp,map,npix_fits)
+    deallocate(random_numbers)
+    write(0,*)'random signal map has been generated and added to noise'
 
-    ALLOCATE(matb(0:npix_cut-1,0:npix_cut-1))
-
-! calculate Hermitean square root of correlation matrix. Spoils
-    CNTpp=CTpp*ampl
-    IF ( add_map_noise ) THEN
-       IF (add_noise.and.do_Gsmooth) THEN
-          CNTpp=CNTpp+map_npp
-       ELSE
-          FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + map_npp(i,i)
-       ENDIF
-    ELSE
-! this is a regularization hack for the case one wants pure signal map
-       FORALL(i=0:npix_cut-1)  CNTpp(i,i) = CNTpp(i,i) + epsil
-    ENDIF
-       
-!    IF(SVD) THEN
-!       WRITE(0,*)"Doing SVD MAP"
-!       ALLOCATE(U(0:npix_cut-1,0:npix_cut-1))
-!       ALLOCATE(VT(0:npix_cut-1,0:npix_cut-1))
-!       ALLOCATE(WORKNEL(0:5*npix_cut))
-!       INFO = 0
-!       DO i = 0, npix_cut-1
-!          DO j = i, npix_cut-1
-!             CNTpp(i,j) = CNTpp(j,i)
-!          ENDDO
-!       ENDDO
-!!    Do general SVD 
-!       CALL DGESVD('A','A',npix_cut,npix_cut,CNTpp,npix_cut,evals,&
-!                  & U,npix_cut,VT,npix_cut,WORKNEL,5*npix_cut,INFO)
-!       IF(INFO/=0) THEN
-!          write(0,*) "DGESVD info=", INFO
-!          STOP 'Error SVD DGESVD'
-!       ENDIF
-!       DO i = 0, mode_number
-!          IF(abs(evals(i)) == 0.0) THEN
-!             VT(i,:) = 0.0d0
-!          ELSE
-!             VT(i,:) = VT(i,:)*SQRT(evals(i))
-!          ENDIF
-!       ENDDO
-!       IF(mode_number<npix_cut-1) THEN
-!          DO i = mode_number+1, npix_cut-1
-!             VT(i,:) = 0.0d0
-!          ENDDO
-!       ENDIF
-!
-!       CALL DGEMM('N','N',npix_cut,npix_cut,npix_cut,1.0d0,U,npix_cut,&
-!                 & VT,npix_cut,0.0d0,matb,npix_cut)
-!       DEALLOCATE(U)
-!       DEALLOCATE(VT)
-!       DEALLOCATE(WORKNEL)
-!    ELSE !Cholesky method
-       CALL dsyev('V', 'L', npix_cut, CNTpp, npix_cut, evals, ework, &
-                 & 10*npix_cut,INFO)
-       IF(INFO == 0) THEN
-          DO i=0,npix_cut-1
-             IF (evals(i) < 0.d0) THEN
-                WRITE(0,'(a,i7,1x,1pe12.4)') 'Warning negative eigenvalue ', i, evals(i)
-                evals(i) = 0.d0
-             ENDIF
-             CNTpp(:,i) = CNTpp(:,i) * evals(i)**0.25d0
-          ENDDO
-       ELSE
-          WRITE(0,*)'INFO=',INFO
-          STOP 'Failed on DSYEV'
-       ENDIF
-
-       CALL dsyrk('L', 'N', npix_cut, npix_cut, 1.0d0, CNTpp, npix_cut,&
-            &0.0d0, matb, npix_cut)
-!    ENDIF
-
-    ALLOCATE(map_cut(0:npix_cut-1))
-    
-    DO i = 0, npix_cut - 1
-       map_cut(i) = DBLE(randgauss_boxmuller(iseed))
-    ENDDO
-
-!   Generate random realization for correlated gaussian map
-    
-    CALL dsymv('L',npix_cut,1.0d0,matb,npix_cut,map_cut,1,0.0d0,map_signal,1)
-    
-!   Uncomment to print real map with cut
-!696 CONTINUE
-!   ALLOCATE(map_cut2(0:npix_cut-1))
-!   ALLOCATE(heal_map(0:npix_fits-1,1))
-!   map_cut2=wmap_signal 
-!   map_cut2=0.0d0 
-!   map_cut2(600)=wmap_noise(600)
-
-    DEALLOCATE(map_cut,matb)
+! Smooth full-sky map if needed
+    if (beam_fwhm > 0.0_dp) then
+       call collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+       allocate( alm(1:1,0:lmax,0:lmax) )
+       call map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
+       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alm2map(nside,lmax,lmax,alm,map(:,1))
+       write(0,*)'random map has been smoothed with Gaussian beam'
+       deallocate( alm )
+    endif
 
     return
   END SUBROUTINE make_fake_map
 
-  SUBROUTINE WriteWMAP_map()
+  SUBROUTINE Write_map(heal_map)
+    REAL(DP), INTENT(IN), DIMENSION(:,:)   :: heal_map
     !-----------------------------------------------------------------------
     !                        generates header
     !-----------------------------------------------------------------------
-    REAL(SP), DIMENSION(:,:), ALLOCATABLE    :: heal_map
-    INTEGER, PARAMETER :: nlheader = 30
+    INTEGER, PARAMETER :: nlheader = 80
     CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
-    INTEGER :: iostatus
+    INTEGER :: iostatus, npix_loc, nside_loc
     REAL    :: nullval
     LOGICAL :: anynull,filefound
 
-    ALLOCATE(heal_map(0:npix_fits-1,1))
-    heal_map(:,1) = unpack(map_signal,map_mask,0.d0)
+    !heal_map(:,1) = unpack(map_signal,map_mask,-1.6375d30)
+    npix_loc =size(heal_map,1)
+    nside_loc=npix2nside(npix_loc)
 
-    header = ''
-
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'COMMENT','     Sky Map Pixelisation Specific Keywords    ')
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'PIXTYPE','HEALPIX','HEALPIX Pixelisation')
-    CALL add_card(header,'ORDERING','RING',  'Pixel ordering scheme, either RING or NESTED')
-    CALL add_card(header,'NSIDE'   ,nside,   'Resolution parameter for HEALPIX')
-    CALL add_card(header,'FIRSTPIX',0,'First pixel # (0 based)')
-    CALL add_card(header,'LASTPIX',npix_fits-1,'Last pixel # (0 based)')
-    CALL add_card(header) ! blank line
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'COMMENT','     Planck Simulation Specific Keywords      ')
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'EXTNAME','''SMOOTHED DATA''')
-    CALL add_card(header,'CREATOR','Carlo and Dima',        'Software creating the FITS file')
-    CALL add_card(header,'VERSION','Ugly Hack',     'Version of the simulation software')
-    CALL add_card(header)
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'COMMENT','     Data Description Specific Keywords       ')
-    CALL add_card(header,'COMMENT','-----------------------------------------------')
-    CALL add_card(header,'INDXSCHM','IMPLICIT',' Indexing : IMPLICIT or EXPLICIT')
-    CALL add_card(header,'GRAIN', 0, ' Grain of pixel indexing')
-    CALL add_card(header,'COMMENT','GRAIN=0 : no indexing of pixel data                         (IMPLICIT)')
-    CALL add_card(header,'COMMENT','GRAIN=1 : 1 pixel index -> 1 pixel data                     (EXPLICIT)')
-    CALL add_card(header,'COMMENT','GRAIN>1 : 1 pixel index -> data of GRAIN consecutive pixels (EXPLICIT)')
-    CALL add_card(header) ! blank line
-!    fake_file='./fake.fits'
+    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax)
+!    CALL add_card(header,'COMMENT','-----------------------------------------------')
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
        open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
@@ -176,22 +93,20 @@ CONTAINS
           write(0,*) 'Unable to open output ',TRIM(ADJUSTL(fake_file))
           stop
        ELSE
-          close(26)
+          close(26,status='delete')
        ENDIF
     ENDIF
     
     write(0,*)'Writing bintab'
-    write(0,*)size(heal_map,1),size(heal_map,2),npix_fits,nmaps, nlheader
-    CALL write_bintab(heal_map, npix_fits, nmaps, header, nlheader,TRIM(ADJUSTL(fake_file)))
+    write(0,*)size(heal_map,1),size(heal_map,2),npix_loc,nlheader
+    CALL write_bintab(heal_map, npix_loc, 1, header, nlheader,TRIM(ADJUSTL(fake_file)))
     write(0,*)'Done'
 
-    DEALLOCATE(heal_map)
-
     RETURN
-  END SUBROUTINE WriteWMAP_map
+  END SUBROUTINE Write_map
 
   SUBROUTINE ReadExpData(format_choice)
-  character*(*), intent(in)    :: format_choice
+    character*(*), intent(in)    :: format_choice
 
     if (index(ADJUSTL(format_choice),'WMAP')) then
        call ReadWMAP_map()
@@ -208,7 +123,7 @@ CONTAINS
     USE ALM_TOOLS
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j,ordering,lcount,iter_order=5
+    INTEGER :: i,j,ordering,lcount,nmaps,iter_order=5
     logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
@@ -239,12 +154,11 @@ CONTAINS
     endif
 
     ALLOCATE(wmap_noise(0:npix_fits-1,1:1))
+    wmap_noise = 0.0_dp
     IF( add_noise .and. nmaps > 1 ) THEN
        ! Assumes diagonal noise, 
        ! and wmap_data to contain inverse noise in the last map
        where( wmap_data(:,nmaps) > 0.0 ) wmap_noise(:,1) = 1.d0/wmap_data(:,nmaps)
-    ELSE
-       wmap_noise = 0.0_dp
     ENDIF
 
     ALLOCATE(map_mask(0:npix_fits-1))
@@ -266,6 +180,7 @@ CONTAINS
 ! data is in, now process it and store in global arrays
 
 !Smooth and pack the signal.
+
     ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_Gsmooth) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
@@ -287,6 +202,8 @@ CONTAINS
        call getclm(clm, lcount, wmap_noise, npix_fits, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, Wl(:,1), lmax)
        call getcpp(map_npp, npix_cut, clm, lcount, nside, mask=map_mask)
+    ELSE
+       map_npp=0.0_dp
     ENDIF
 
 ! diagonal noise needs always to be defined, although may be zero
@@ -314,73 +231,138 @@ CONTAINS
     USE ALM_TOOLS
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j,ordering,lcount,iter_order=5
+    INTEGER :: i,j,ordering,lcount,npix,nmaps,iter_order=5
     logical :: convert_from_nested=.false.
     complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:),   ALLOCATABLE :: clm
-    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
-    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask
+    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise, WORK
+    REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
+    REAL(DP), DIMENSION(0:3)              :: mpoles
     
 ! Input must be full-sky in globally accessible files
-    npix_fits=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
-    if ( nside2npix(nside) /= npix_fits ) then
-       stop 'Mismatch between map size and expected nside'
+    npix=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering)
+    npix_fits=nside2npix(nside)
+    if (npix > npix_fits) then
+       write(0,*)'Input map will be coarsened from nside=',npix2nside(npix)
+    elseif (npix < npix_fits) then
+       stop 'Analysis on map coarser than CTpp is not implemented'
     endif
 
 ! Allocate arrays and input necessary data. 
-    ALLOCATE(exp_data(0:npix_fits-1,1:1))
+    ALLOCATE(exp_data(0:npix-1,1:1))
     WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_signal_file))
-    CALL input_map(TRIM(ADJUSTL(map_signal_file)),exp_data,npix_fits,1)
-    exp_data=exp_data*1.0d3      ! convert to mK, assuming input is in K
+    CALL input_map(TRIM(ADJUSTL(map_signal_file)),exp_data,npix,1)
+    exp_data=exp_data*expdata_scale   ! convert to mK, from whatever input is
+
+
+    IF( add_noise) THEN
+       ALLOCATE(exp_noise(0:npix-1,1:1))
+       ! Assumes diagonal noise, 
+       ! and wmap_data to contain noise per pixel in same units as map
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
+       CALL input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix,1)
+       exp_noise=exp_noise*expdata_scale  ! convert to mK
+       exp_noise=exp_noise**2             ! make the variance
+    ELSE
+       ALLOCATE(exp_noise(0:npix_fits-1,1:1))
+       exp_noise = 0.0_dp
+    ENDIF
+
+    IF(do_mask) THEN
+       ALLOCATE(exp_mask(0:npix-1,1:1))
+       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
+       CALL input_map(TRIM(ADJUSTL(map_mask_file)),exp_mask,npix,1)
+    ELSE
+       ALLOCATE(exp_mask(0:npix_fits-1,1:1))
+       exp_mask = 1
+    ENDIF
 
 ! Check ordering, CTpp is probably given in RING (to do: auto-synchronized)
     if ( ordering == 0 ) then
        write(0,*)'Ordering of the input map is unknown, assumed RING'
     else if ( ordering == 2 ) then
        write(0,*)'Input converted from NESTED to RING'
-       call convert_nest2ring(nside,exp_data)
        convert_from_nested=.true.
     else
        write(0,*)'Input is in RING pixelization'
     endif
 
-    ALLOCATE(exp_noise(0:npix_fits-1,1:1))
-    IF( add_noise) THEN
-       ! Assumes diagonal noise, 
-       ! and wmap_data to contain noise per pixel in same units as map
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
-       CALL input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix_fits,1)
-       exp_noise=exp_noise*1.0d3   ! convert to mK, it is in K (check !)
-       exp_noise=exp_noise**2      ! make the variance
-       if (convert_from_nested) call convert_nest2ring(nside,exp_noise)
-    ELSE
-       exp_noise = 0.0_dp
-    ENDIF
+    if (npix > npix_fits) then 
+       CALL REBIN_MAP(exp_data,exp_noise,exp_mask,npix,npix_fits,convert_from_nested)
+    endif
+
+    if ( convert_from_nested ) then
+       call convert_nest2ring(nside,exp_data)
+       call convert_nest2ring(nside,exp_mask)
+       call convert_nest2ring(nside,exp_noise)
+    endif
 
     ALLOCATE(map_mask(0:npix_fits-1))
-    IF(do_mask) THEN
-       ALLOCATE(exp_mask(0:npix_fits-1,1:1))
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
-       CALL input_map(TRIM(ADJUSTL(map_mask_file)),exp_mask,npix_fits,1)
-       map_mask = ( exp_mask(:,1) /= 0 ) 
-       DEALLOCATE(exp_mask)
-    ELSE
-       map_mask = .true.
-    ENDIF
+    ! This threshold interplace with one in REBIN, if mask is not scaled to 0-1
+    ! It was introduced to work agains smoothing of masked map issues
+    ! to mask edge pixels - that's why a bit over 50% is a good criterium
+    map_mask = ( exp_mask(:,1) >= 0.6_dp )
+    DEALLOCATE(exp_mask)
 
 ! Count unmasked pixels 
     npix_cut = count(map_mask)
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
     if (npix_cut == 0) STOP 'All pixels are masked'
 
-
 ! data is in, now process it and store in global arrays
 
-!Smooth and pack the signal.
+! Smooth and pack the signal.
+    if (.false.) then       ! Hack: hard choice of real space smoothing
+    if (do_Gsmooth) then
+       ALLOCATE ( bpp(0:npix_fits-1,0:npix_fits-1) )
+       call create_beam(bpp,Wl(:,1),lmax,nside=nside)
+       call weight_beam(bpp,1)
+
+       ! Cut sky weighting (seems like after pixel weightening ?)
+       do j=0,npix_fits-1
+          bpp(:,j) = bpp(:,j)/sum(bpp(:,j),mask=map_mask)
+       enddo
+       bpp = bpp*(FOURPI*npix_cut/npix_fits)
+
+       do j=0,npix_fits-1
+          bpp(:,j) = pack(bpp(:,j),map_mask)
+       enddo
+       do i=0,npix_fits-1
+          bpp(i,:) = pack(bpp(i,:),map_mask)
+       enddo
+
+    endif
+
+    ALLOCATE(map_signal(0:npix_cut-1))
+    IF (do_Gsmooth) THEN
+       allocate(WORK(0:npix_cut-1))
+       WORK = pack(exp_data(:,1),map_mask)
+       call DGEMV('T',npix_cut,npix_cut,1.d0,bpp,npix_fits,WORK,1,0.d0,map_signal,1)
+    ELSE
+       map_signal = pack(exp_data(:,1),map_mask)
+    ENDIF
+
+!Smooth noise if needed and store it in a cut sky matrix map_npp
+    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+    IF (add_noise.and.do_Gsmooth) THEN
+       WORK = pack(exp_noise(:,1),map_mask)
+       do i=0,npix_cut-1
+          bpp(i,:)=sqrt(WORK(i))*bpp(i,:)
+       enddo
+       call DGEMM('T','N',npix_cut,npix_cut,npix_cut,1.d0,bpp,npix_fits,bpp,npix_fits,0.d0,map_npp,npix_cut)
+       deallocate(WORK)
+    ELSE
+       map_npp=0.0_dp
+    ENDIF
+
+    else      ! Hack:   to choose lm smoothing
+
     ALLOCATE(map_signal(0:npix_cut-1))
     IF (do_Gsmooth) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
        call map2alm_iterative(nside,lmax,lmax,iter_order,exp_data,alm,(/0.0_dp, 0.0_dp/),w8ring)
+       write(0,*) alm(1:1,0:1,0:1)
+       ! alm(1:1,0:1,0:1) = cmplx(0.0_dp,0.0_dp)
        call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,exp_data(:,1))
        map_signal = pack(exp_data(:,1),map_mask)
@@ -388,15 +370,31 @@ CONTAINS
     ELSE
        map_signal = pack(exp_data(:,1),map_mask)
     ENDIF
-    DEALLOCATE(exp_data)
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
-    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+   ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
     IF (add_noise.and.do_Gsmooth) THEN
        call getclm(clm, lcount, exp_noise, npix_fits, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, Wl(:,1), lmax)
        call getcpp(map_npp, npix_cut, clm, lcount, nside, mask=map_mask)
+    ELSE
+       map_npp=0.0_dp
     ENDIF
+
+    endif         ! End the Hack
+
+! Subtract monopole and dipole
+    allocate(WORK(0:npix_fits-1))
+    WORK = unpack(map_signal,map_mask,-1.6375d30)
+    call remove_dipole(nside,WORK,1,2,mpoles,(/0._dp,0._dp/))
+    map_signal = pack(WORK,map_mask)
+    deallocate(WORK)
+
+    fake_file='ppp_smica_0.1_0.6'
+    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
+    call Write_map(exp_data)
+    DEALLOCATE(exp_data)
+    stop
 
 ! diagonal noise needs always to be defined, although may be zero
     ALLOCATE(diag_noise(0:npix_cut-1))
@@ -416,6 +414,101 @@ CONTAINS
 
     RETURN
   END SUBROUTINE ReadPlanck_map
+
+  SUBROUTINE REBIN_MAP(exp_data,exp_noise,exp_mask,npixin,npixout,ordering)
+    USE udgrade_nr
+    REAL(DP), INTENT(INOUT), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask
+    INTEGER(I4B), INTENT(IN)          :: npixin,npixout
+    LOGICAL,      INTENT(IN)          :: ordering ! NESTED=TRUE, RING=FALSE 
+
+    real(DP), dimension(:,:),allocatable :: work
+    real(DP), parameter                  :: good_fraction=0.1_dp
+    real(DP), parameter                  :: BAD_PIXEL=-1.6375d30
+    integer(I4B)                         :: nsidein,nsideout
+    logical,  dimension(:,:),allocatable :: mask
+
+    nsidein =npix2nside(npixin)
+    nsideout=npix2nside(npixout)
+    allocate(work(0:npixin-1,1:1))
+
+    ! Output is the masked, rebinned, noise weighted data, noise and mask. 
+    ! Rebin sets valid data to any big pixel that had at least one good highres
+    ! Rebined mask is equal the fraction of good highres pixel in a lowres.
+    if (do_mask) then
+       ! We need to prepare the missing values in data and noise
+       allocate( mask(0:npixin-1,1:1) )
+       mask = ( exp_mask <  0.5_dp )      ! Input should be 0 or 1
+       where( mask ) exp_data=BAD_PIXEL   ! mark masked pixels as bad
+
+       ! Now we degrade the mask itself
+       work = exp_mask
+       call REBIN_FULL_SKY_WORK_TO(exp_mask)
+    endif
+
+    if (add_noise) then
+       ! Average data wth inverse noise weights, first step
+       if ( do_mask ) where( mask ) exp_noise=1.0_dp
+       work = exp_data/exp_noise
+       call REBIN_FULL_SKY_WORK_TO(exp_data)
+
+       ! Noise is coadded in inverse
+       work=1.0_dp/exp_noise
+       if ( do_mask ) where( mask ) work=BAD_PIXEL ! mark bad pixels
+       call REBIN_FULL_SKY_WORK_TO(exp_noise)
+       ! reweight the data with inverse averaged noise
+       exp_data=exp_data/exp_noise
+       ! The noise is extensive quantity, undo averaging with final inverse
+       exp_noise=(real(npixout,DP)/real(npixin,DP))/exp_noise
+       if ( do_mask ) where( mask ) exp_noise=exp_noise/exp_mask
+    else
+       work = exp_data
+       call REBIN_FULL_SKY_WORK_TO(exp_data)
+    endif
+
+    deallocate(mask,work)
+
+    if ( do_mask ) then
+       where ( exp_mask < good_fraction )
+          exp_data = 0.0_dp ! we zero rather than BAD_PIXEL for smoothing
+          exp_noise= 0.0_dp
+          exp_mask = 0.0_dp
+       elsewhere
+!          exp_mask = 1.0_dp
+       end where
+    endif
+
+    if ( DEBUG .and. STORE_REBINNED_MAPS ) then
+       write(0,*)'Rebinned maps stored in default localtion'
+       fake_file='rebinned_cmb.fits'
+       call Write_map(exp_data)
+       if ( add_noise ) then
+          fake_file='rebinned_noise.fits'
+          call Write_map(exp_noise)
+       endif
+       if ( do_mask ) then
+          fake_file='rebinned_mask.fits'
+          call Write_map(exp_mask)
+          write(0,*)count(exp_mask > good_fraction),' good pixels'
+       endif
+       if ( STOP_AFTER_STORING_REBINNED_MAPS ) stop
+    endif
+
+    return
+
+    CONTAINS
+        SUBROUTINE REBIN_FULL_SKY_WORK_TO(map_out)
+        real(DP), intent(inout), allocatable, dimension(:,:) :: map_out
+
+           deallocate(map_out)
+           allocate(map_out(0:npixout-1,1:1))
+           if (ordering) then
+              call udgrade_nest(work,nsidein,map_out,nsideout)
+           else
+              call udgrade_ring(work,nsidein,map_out,nsideout)
+           endif
+           return
+        END SUBROUTINE REBIN_FULL_SKY_WORK_TO
+  END SUBROUTINE REBIN_MAP
 
 SUBROUTINE healpix_euler(alpha,beta,gamma,amat)
 ! see Varshalovich, Moskalev & Kershonskii

@@ -3,9 +3,14 @@ MODULE TOPOLOGY_TYPES
 
   IMPLICIT NONE
 
-  CHARACTER(LEN=*), PARAMETER :: code = 'TOPLIKE'
+  CHARACTER(LEN=*), PARAMETER :: code = 'TOPMARG'
   CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
   
+! Debugging output
+  LOGICAL  :: DEBUG=.false.
+  LOGICAL  :: STORE_REBINNED_MAPS=.true., STOP_AFTER_STORING_REBINNED_MAPS=.false.
+
+
 ! Control
   INTEGER(I1B), PARAMETER :: S_NONE=0, S_LCUT=1, S_NCUT=2, S_CONDITIONING=3
   TYPE EVALUE_CUT
@@ -18,16 +23,20 @@ MODULE TOPOLOGY_TYPES
   END TYPE EVALUE_CUT
 
   TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
-  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
+!  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1085,0.0,.false.,0.0)
+  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,837,0.0,.false.,0.0)
+!  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
 
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
 ! CTpp normalization
   integer(I4B)  :: lnorm=10
   real(DP)      :: curlCl_in_mK = 1.d-2  ! 10x real to have ampl~-2
+!  real(DP)      :: curlCl_in_mK = 1.d-3  !  temporary for maps
 
 ! Data
   CHARACTER(LEN=6)                           :: expdata_format='WMAP'
+  REAL(DP)                                   :: expdata_scale=1.0_dp
   REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
@@ -60,7 +69,7 @@ MODULE TOPOLOGY_TYPES
 
 ! Global numerical variables
   REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
-  INTEGER  :: nside, npix_cut, npix_fits, lmax, nmaps, iseed, nsh
+  INTEGER  :: nside, npix_cut, npix_fits, lmax, iseed, nsh
   INTEGER  :: n_evalues, nmode_cut
 
 ! Control variables

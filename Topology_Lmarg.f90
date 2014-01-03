@@ -16,12 +16,13 @@ PROGRAM Topology_Lmarg
   USE PIX_TOOLS
   IMPLICIT NONE
 
-  LOGICAL :: found, do_nice_out_file
+  LOGICAL :: found, do_nice_out_file, random_angles
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
-  CHARACTER(LEN=120) :: nice_out_file
+  integer(I4B)                          :: iter, niter, seed_size
+  CHARACTER(LEN=255) :: nice_out_file, inputline
 
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
@@ -31,6 +32,7 @@ PROGRAM Topology_Lmarg
 
 ! data and noise file
   read(*,'(a)') expdata_format
+  read(*,*)     expdata_scale
   read(*,'(a)') map_signal_file
 ! Map modification files
   read(*,'(a)') map_noise_file
@@ -42,34 +44,33 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') fidfile
 ! CTpp file
   read(*,'(a)') infile
-! Makefake map output file
-  read(*,'(a)') fake_file
 
   read(*,*) do_nice_out_file
 ! Read in parameters
   read(*,*) nside
+! Next four parameters are strictly for printout
   read(*,*) nsh
   read(*,*) OmegaL
   read(*,*) H0
   read(*,*) Ok
 
-  read(*,*) make_map
-  read(*,*) add_map_noise
-  read(*,*) iseed
-  read(*,*) make_map_only
-
   read(*,*) beam_fwhm
-  
   read(*,*) lmax
 
   read(*,*) do_rotate
-  read(*,*) ang(1),ang(2),ang(3)
+  read(*,'(a)') inputline
+  write(0,*) inputline
   read(*,*) find_best_angles
+  read(*,*) niter
+  read(*,*) iseed
 
   read(*,*) add_noise
   read(*,*) epsil
 
 !======================================================================
+
+  call random_seed(seed_size)
+  call random_seed(put=iseed+37*(/ (iter-1, iter=1,seed_size) /))
 
   IF (beam_fwhm == 0.0) THEN
      do_Gsmooth=.FALSE.
@@ -106,12 +107,12 @@ PROGRAM Topology_Lmarg
 
   INQUIRE(file=TRIM(beam_file),exist=do_expsmooth)
   WRITE(0,*) 'CTpp smoothed by:'
-  WRITE(0,*) '     - Pixle window:', nside 
+  WRITE(0,*) '     - Pixel window:', nside 
   IF (do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
-     WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
+     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
   ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-     WRITE(0,*) '     - experimantal beam:', TRIM(beam_file)
+     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
   ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
      WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
   ENDIF
@@ -151,11 +152,6 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Using regularization option, epsil =', epsil
   ENDIF
 
-  IF (make_map_only) THEN
-     WRITE(0,*)'Making map only'
-     GO TO 990
-  ENDIF
-
   IF (do_nice_out_file) THEN
      WRITE(0,*) 'Using nice out file'
   ELSE
@@ -173,12 +169,12 @@ PROGRAM Topology_Lmarg
     WRITE(103,'(1Xa,F9.4)')'H0     :', H0
 
     WRITE(103,'(1Xa)') 'CTpp smoothed by:'
-    WRITE(103,'(1Xa,I4)') '     - Pixle window:', nside 
+    WRITE(103,'(1Xa,I4)') '     - Pixel window:', nside 
     IF (do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
-       WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
+       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
     ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-       WRITE(103,'(1Xa,a)') '     - experimantal beam:', TRIM(beam_file)
+       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
     ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
        WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
     ENDIF
@@ -213,17 +209,18 @@ PROGRAM Topology_Lmarg
        IF(find_best_angles) THEN
           WRITE(103,'(1Xa,1XL1)')'find_best_angles :', find_best_angles
        ELSE
-          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+          if ( index(inputline,'random') /= 0 ) then
+             random_angles=.true.
+             WRITE(103,'(1Xa)')'Rotating to random angles'
+          else
+             random_angles=.false.
+             read(inputline,*)ang
+             WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+          endif 
        ENDIF
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
-    IF(make_map) THEN
-       WRITE(103,'(1Xa,1Xa)')'Making map    :', TRIM(fake_file)
-       WRITE(103,'(1Xa,1XL1)')'add_map_noise :', add_map_noise
-       WRITE(103,'(1Xa,1XL1)')'smooth_map    :', do_Gsmooth
-    ENDIF
   ENDIF
-990 CONTINUE
 
 !-------------------------------------------------------------------
 ! Read and sets: 
@@ -245,7 +242,7 @@ PROGRAM Topology_Lmarg
 ! Allocate global working array for full sky manipulations
   allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
 
-! Add experimental beam and pixel window to preset Gaussian and smooth CTpp
+! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
   if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
   else
@@ -311,25 +308,19 @@ PROGRAM Topology_Lmarg
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-
-!-------------------------------------------------------------------
-  IF (make_map_only) THEN 
-     call RECONSTRUCT_FROM_EIGENVALUES()
-     ampl_best= 1.0d0
-     GO TO 991
-  ENDIF
-  CALL NORMALIZE_EIGENVALUES(CTpp_eval,CTpp_norm)
+  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
   allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
 
+  do iter=1,niter
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   if (do_rotate) then
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
      else
-        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
+        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom=.true.)
      endif
   else
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
@@ -359,10 +350,12 @@ PROGRAM Topology_Lmarg
   WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', ang
  
 ! Final one line answer to the standard output
-  WRITE(*,'(f7.4,7(1x,d15.7),3(1x,d12.4))')                        &
+  WRITE(*,'(f9.4,7(1x,d15.7),3(1x,d12.4))')                        &
         Ok,                                                  &
         LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
         ampl_best,ampl_var,ampl_curv,CTpp_norm,ang
+
+  enddo
 
 ! Archive for storage in the nice commented file
   if (do_nice_out_file) then
@@ -378,15 +371,6 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)')'  curlCl(mK)   :',curlCl_in_mK
      WRITE(103,'(a, 1pd15.7)') ' CTpp  norm   : ', CTpp_norm
      close(103)
-  endif
-
-! Optional output of cut-sky realization from CTpp
-!  Call make_fake_mode_map(ampl_best)
-
-991 CONTINUE
-  IF (make_map) then
-     CALL make_fake_map(ampl_best)
-     CALL WriteWMAP_map()
   endif
 
 END PROGRAM Topology_Lmarg

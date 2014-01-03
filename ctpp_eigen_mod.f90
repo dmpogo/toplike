@@ -110,13 +110,11 @@ CONTAINS
       return
    end subroutine RECONSTRUCT_FROM_EIGENVALUES
 
-   subroutine NORMALIZE_EIGENVALUES(eval,ctppnorm)
-   ! Normalizes CTpp \sum(eigenvalues)=4 Pi
-   real(DP), intent(inout), dimension(0:) :: eval
-   real(DP), intent(out)                  :: ctppnorm
+   subroutine NORMALIZE_EIGENVALUES(ctppnorm_out)
+   real(DP), intent(out), optional  :: ctppnorm_out
 
    integer(I4B)            :: l, lmcount
-   real(DP)                :: flatnorm
+   real(DP)                :: flatnorm, ctppnorm
 
    ! Normalize to power over l=2,lnorm being equal to that with flat curlCl
    ! Note: eigenvalues are eval ~ Cl * 4pi/npix
@@ -128,12 +126,13 @@ CONTAINS
 
       ! assuming eigenmodes are lm's from l=2
       lmcount=(lnorm+3)*(lnorm-1)
-      ctppnorm=flatnorm*npix_fits/SUM(eval(0:lmcount-1))
-      eval = eval*ctppnorm
-      write(0,*)'norm',lmcount,flatnorm,SUM(eval(0:lmcount-1)),eval(0)
+      ctppnorm=flatnorm*npix_fits/SUM(CTpp_eval(0:lmcount-1))
+      write(0,*)'norm ',flatnorm, SUM(CTpp_eval(0:lmcount-1)), ctppnorm
+      CTpp_eval = CTpp_eval*ctppnorm
 
       write(0,*)'Normalized over l=',lnorm,'to curlCl(mK)=',curlCl_in_mK
 
+      if (present(ctppnorm_out)) ctppnorm_out=ctppnorm
       return
    end subroutine NORMALIZE_EIGENVALUES
 
