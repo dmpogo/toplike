@@ -20,7 +20,7 @@ CONTAINS
       Bweights = 0.0_dp
 
       ic=0
-      do ip=0,npix_fits-1
+      do ip=0,ntot-1
          if (map_mask(ip)) then
             CTpp_fid(0:npix_cut-1,ic)=pack(CTpp_fid(:,ip),map_mask)
             Bweights(ic,ic)=w8pix(ip,1)
@@ -29,7 +29,7 @@ CONTAINS
       enddo
    
       ! Solve generalized problem CTpp*B*evec = eval*evec
-      call DSYGV(2,'V','L',npix_cut,CTpp_fid,npix_fits,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+      call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
       deallocate(Bweights)
 
       !short term fix, consider using more sophisticated cut

@@ -4,7 +4,7 @@ MODULE TOPOLOGY_TYPES
   IMPLICIT NONE
 
   CHARACTER(LEN=*), PARAMETER :: code = 'TOPMARG'
-  CHARACTER(LEN=*), PARAMETER :: version = 'Summer2012'
+  CHARACTER(LEN=*), PARAMETER :: version = 'Winter2014'
   
 ! Debugging output
   LOGICAL  :: DEBUG=.false.
@@ -51,9 +51,9 @@ MODULE TOPOLOGY_TYPES
 
   ! Persistent are full-sky CTpp_eval and CTpp_cplm
   ! Intermittent are nmode size CTpp, CNTpp
-  REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: CTpp, CNTpp
-  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: CTpp_eval
-  COMPLEX(DP), DIMENSION(:,:), ALLOCATABLE   :: CTpp_cplm
+  REAL(DP),    DIMENSION(:,:),   ALLOCATABLE   :: CTpp, CNTpp
+  REAL(DP),    DIMENSION(:),     ALLOCATABLE   :: CTpp_eval
+  COMPLEX(DP), DIMENSION(:,:,:), ALLOCATABLE   :: CTpp_cplm
 
   ! Auxilliary arrays
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: VM
@@ -69,7 +69,10 @@ MODULE TOPOLOGY_TYPES
 
 ! Global numerical variables
   REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
-  INTEGER  :: nside, npix_cut, npix_fits, lmax, iseed, nsh
+  INTEGER  :: nside, npix, npix_fits
+  INTEGER  :: npix_cut, ntot
+  INTEGER  :: npol, npix_cut_I, npix_cut_QU
+  INTEGER  :: lmax, iseed, nsh
   INTEGER  :: n_evalues, nmode_cut
 
 ! Control variables

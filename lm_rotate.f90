@@ -1,5 +1,6 @@
 MODULE LM_ROTATE
   USE ALM_TOOLS
+  USE PIX_TOOLS
   USE HEALPIX_TYPES
 
   REAL(DP), DIMENSION(:, :), ALLOCATABLE :: dlmm
@@ -41,22 +42,23 @@ contains
   !                              1) Speed up rotate_ctpp() by factor 5
   !                                 by cleaning inner loop
   !                              2) Corrected parallelization
+  ! Dmitri     Jan03       UofA  include polarization
   !-----------------------------------------------------------------
   
-  SUBROUTINE rotate_ctpp(ctpp, cplm, nside, n_evalues, lmax, a, b, g, redo_dlmm)
+  SUBROUTINE rotate_ctpp(ctpp, cplm, nside, n_evalues, npol, lmax, a, b, g, redo_dlmm)
     IMPLICIT NONE
 
-    REAL(DP),   DIMENSION(0:12*nside**2-1,0:12*nside**2-1), intent(out) :: ctpp
-    COMPLEX(DP),DIMENSION(0: lmax*(lmax+2), 0:n_evalues-1), intent(in)  :: cplm
-    INTEGER,          intent(in) :: nside,lmax,n_evalues
-    REAL(DP),         intent(in) :: a, b, g
-    LOGICAL,          intent(in) :: redo_dlmm
+    REAL(DP),    intent(out), DIMENSION(0:, 0:)     :: ctpp
+    COMPLEX(DP), intent(in),  DIMENSION(1:, 0:, 0:) :: cplm
+    INTEGER,     intent(in) :: nside,npol,lmax,n_evalues
+    REAL(DP),    intent(in) :: a, b, g
+    LOGICAL,     intent(in) :: redo_dlmm
     
-    INTEGER                                        :: l, m, mp, p, indl
-    REAL(DP),    DIMENSION(0: 12 * nside**2 - 1)   :: map
-    COMPLEX(DP), DIMENSION(1: 1, 0: lmax, 0: lmax) :: alm
-    COMPLEX(DP), DIMENSION(0: lmax)                :: ea,eg
-    REAL(DP)                                       :: sgn
+    INTEGER                                         :: npix, l, m, mp, p, ip, indl
+    REAL(DP),    DIMENSION(0:12*nside**2-1, 1:npol) :: map
+    COMPLEX(DP), DIMENSION(1:npol, 0:lmax, 0:lmax)  :: alm
+    COMPLEX(DP), DIMENSION(0: lmax)                 :: ea,eg
+    REAL(DP)                                        :: sgn
 
     integer :: OMP_GET_THREAD_NUM
 
@@ -80,6 +82,8 @@ contains
        eg(m) = exp(DCMPLX(0.d0, -DBLE(m)*g))
     enddo
 
+    npix=nside2npix(nside)
+
 !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(p,map,alm,indl,l,m,mp,sgn)
 
     DO p = 0,n_evalues-1
@@ -90,12 +94,12 @@ contains
        DO l = 0, lmax
           indl = l**2 + l
           DO m = 0, l
-             alm(1,l,m) = ea(m) * dlmm(indl + m, indl) * cplm(indl, p)  ! mp=0
+             alm(:, l, m) = ea(m) * dlmm(indl + m, indl) * cplm(:, indl, p)  ! mp=0
              sgn = -1.d0
              DO mp = 1, l
-                alm(1, l, m) = alm(1, l, m) + ea(m) * &
-                     (dlmm(indl+m,indl+mp)*cplm(indl+mp,p)*eg(mp) + &
-                     sgn*dlmm(indl+m,indl-mp)*CONJG(cplm(indl+mp,p)*eg(mp)))
+                alm(:, l, m) = alm(:, l, m) + ea(m) * &
+                     (dlmm(indl+m,indl+mp)*cplm(:,indl+mp,p)*eg(mp) + &
+                     sgn*dlmm(indl+m,indl-mp)*CONJG(cplm(:,indl+mp,p)*eg(mp)))
                 sgn = -sgn
              ENDDO
           ENDDO
@@ -108,7 +112,10 @@ contains
        ELSE
           CALL alm2map(nside, lmax, lmax, alm, map)
        ENDIF
-       ctpp(:,p) = map(:)
+
+       DO ip=1,npol
+          ctpp((ip-1)*npix:ip*npix-1,p) = map(:,ip)
+       ENDDO
 !$OMP END CRITICAL
 
 !test          write(0,*)'----------------------'
@@ -120,22 +127,22 @@ contains
     RETURN
   END SUBROUTINE rotate_ctpp
 
-  SUBROUTINE getcplm(cplm, ctpp, nside, n_evalues, lmax, w8ring, kernel, cut_md)
+  SUBROUTINE getcplm(cplm, ctpp, nside, n_evalues, npol, lmax, w8ring, kernel, cut_md)
     ! The lm-transform of the eigenvector matrix.
     IMPLICIT NONE
     
-    COMPLEX(DP), DIMENSION(0:lmax*(lmax+2), 0:n_evalues-1), intent(out) :: cplm
-    REAL(DP),    DIMENSION(0:12*nside**2-1, 0:n_evalues-1), intent(in) :: ctpp
-    INTEGER,  intent(in)                              :: nside, lmax, n_evalues
-    REAL(DP), intent(in), DIMENSION(1:2 * nside, 1:1) :: w8ring
-    REAL(DP), intent(in), optional, DIMENSION(0:lmax) :: kernel
-    LOGICAL,  intent(in), optional                    :: cut_md
+    COMPLEX(DP), intent(out), allocatable, DIMENSION(:,:,:) :: cplm
+    REAL(DP), intent(in), DIMENSION(0:, 0:)       :: ctpp
+    INTEGER,  intent(in)                          :: nside, npol, lmax, n_evalues
+    REAL(DP), intent(in), DIMENSION(:,:)          :: w8ring
+    REAL(DP), intent(in), optional, DIMENSION(:)  :: kernel
+    LOGICAL,  intent(in), optional                :: cut_md
 
-    COMPLEX(DP), DIMENSION(1:1, 0:lmax, 0:lmax) :: alm
-    REAL(DP),    DIMENSION(0:12*nside**2 - 1,1) :: map
-    REAL(DP),    DIMENSION(2)                   :: zbounds=(/0.0_dp, 0.0_dp/)
-    INTEGER :: l, m, p, indl, lmin
-    INTEGER, parameter                          :: iter_order=5
+    COMPLEX(DP), DIMENSION(1:npol, 0:lmax, 0:lmax)   :: alm
+    REAL(DP),    DIMENSION(0:12*nside**2 - 1,1:npol) :: map
+    REAL(DP),    DIMENSION(2)                        :: zbounds=(/0.0_dp, 0.0_dp/)
+    INTEGER(I4B)                                     :: npix, l, m, p, ip, indl, lmin
+    INTEGER(I4B), PARAMETER                          :: iter_order=5
     
     ! Cut out the monopole and dipole if requested.
     IF (present(cut_md).and.cut_md) THEN
@@ -144,6 +151,7 @@ contains
       lmin = 0
     END IF
 
+    allocate( cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1) )
     cplm = DCMPLX(0.d0,0.d0)
    
     ! Precompute plm's   (should check if it is faster)
@@ -154,12 +162,15 @@ contains
 
     !call plm_gen(nside,lmax,lmax,plm)
 
+    npix=nside2npix(nside)
 
 !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(p,map,alm,indl,l,m)
     DO p = 0, n_evalues - 1
 
 !$OMP CRITICAL       
-       map(:,1) = ctpp(:,p)
+       do ip=1,npol
+          map(:,ip) = ctpp((ip-1)*npix:ip*npix-1,p)
+       enddo
        IF (n_plm .ne. 0) THEN
           CALL map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,zbounds,w8ring,plm(0:n_plm-1,1:1))
        ELSE
@@ -168,14 +179,14 @@ contains
 
        if (present(kernel) ) then             ! smooth
           DO l = 0, lmax
-             alm(1,l,0:l) = kernel(l) * alm(1, l, 0:l)
+             alm(:,l,0:l) = kernel(l) * alm(:, l, 0:l)
           ENDDO
        endif
 
        DO l = lmin, lmax
           indl = l**2 + l
           DO m = 0, l
-             cplm(indl+m, p) =  alm(1, l, m)
+             cplm(:, indl+m, p) =  alm(:, l, m)
           ENDDO
        ENDDO
 !$OMP END CRITICAL       

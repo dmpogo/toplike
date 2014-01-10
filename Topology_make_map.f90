@@ -98,26 +98,27 @@ PROGRAM Topology_make_map
 ! Read full sky CTpp in
 !
   open(102,file=TRIM(infile),status='old',form='unformatted')
-  read(102) npix_fits
+  read(102) npix_fits,npol
   nside = npix2nside(npix_fits)
   write(0,'(2(a6,I6))')'nside=',nside,' npix=',npix_fits
   if ( nside == -1 ) stop 'Size of Ctpp array does not match any nside'
+  ntot=npix_fits*npol
 
 !-------------------------------------------------------------------
 ! Allocate global working array for full sky manipulations
-  allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
+  allocate(FullSkyWorkSpace(0:ntot-1,0:ntot-1))
   CTpp_full => FullSkyWorkSpace
   read(102)CTpp_full
   close(102)
 
 ! Set experimental beam and pixel window to smooth CTpp
-  allocate ( Wl(0:lmax,1:1) )
+  allocate ( Wl(0:lmax,1:npol) )
   if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.true.)
   else
      CALL collect_beams(Wl,lmax,nside=nside,reset=.true.)
   endif
-  CALL smooth_ctpp_lm(CTpp_full,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_full,ntot,npol,lmax,window=Wl)
   
 !-------------------------------------------------------------------
 !     CTpp_eval  - (with CTpp_evec) - full sky theoretical normalized
@@ -125,7 +126,7 @@ PROGRAM Topology_make_map
 
   call Read_w8ring(nside,w8ring,w8_file)
   call ring2pixw8(w8ring,w8pix)
-  allocate(CTpp_eval(0:npix_fits-1))
+  allocate(CTpp_eval(0:ntot-1))
 
 ! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
@@ -140,9 +141,9 @@ PROGRAM Topology_make_map
   if (do_rotate) then
      ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
      CTpp_evec => FullSkyWorkSpace
-     allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
-     call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
-     call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,lmax,ang(1),ang(2),ang(3),.TRUE.)
+     allocate(CTpp_cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1))
+     call getcplm(CTpp_cplm,CTpp_evec,nside,n_evalues,npol,lmax,w8ring)
+     call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,npol,lmax,ang(1),ang(2),ang(3),.TRUE.)
      deallocate(CTpp_cplm)
      write(0,'((a16),3(1x,e11.4))')'CTpp rotated to',ang
   endif

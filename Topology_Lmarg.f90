@@ -229,7 +229,7 @@ PROGRAM Topology_Lmarg
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
-  allocate ( Wl(0:lmax,1:1) )
+  allocate ( Wl(0:lmax,1:npol) )
   if (do_Gsmooth) then
      CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   else
@@ -240,7 +240,7 @@ PROGRAM Topology_Lmarg
 
 !-------------------------------------------------------------------
 ! Allocate global working array for full sky manipulations
-  allocate(FullSkyWorkSpace(0:npix_fits-1,0:npix_fits-1))
+  allocate(FullSkyWorkSpace(0:ntot-1,0:ntot-1))
 
 ! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
   if (do_expsmooth) then
@@ -253,17 +253,21 @@ PROGRAM Topology_Lmarg
 ! Read in fiducial model and set up cut-sky mode basis
 
   open(104,file=TRIM(fidfile),status='old',form='unformatted')
-  read(104) npix_fits
+  read(104) npix_fits,npol
   write(0,*)'npix=',npix_fits
   if ( nside /= npix2nside(npix_fits) ) then
      write(0,*)'Size of fiducial Ctpp array does not match requested NSIDE',npix_fits,nside
+     stop
+  endif
+  if ( npix_fits*npol < ntot ) then
+     write(0,*)'Size of fiducial Ctpp array does not have all polarization',npol
      stop
   endif
   CTpp_fid => FullSkyWorkSpace
   read(104)CTpp_fid
   close(104)
 
-  CALL smooth_ctpp_lm(CTpp_fid,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_fid,ntot,npol,lmax,window=Wl)
   CALL SET_BASIS_MODES()
  
   write(0,*)'Basis modes defined'
@@ -280,17 +284,21 @@ PROGRAM Topology_Lmarg
 ! Read full sky CTpp in
 !
   open(102,file=TRIM(infile),status='old',form='unformatted')
-  read(102) npix_fits
+  read(102) npix_fits,npol
   write(0,*)'npix=',npix_fits
   if ( nside /= npix2nside(npix_fits) ) then
      write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
+     stop
+  endif
+  if ( npix_fits*npol < ntot ) then
+     write(0,*)'Size of Ctpp array does not have all polarization',npol
      stop
   endif
   CTpp_full => FullSkyWorkSpace
   read(102)CTpp_full
   close(102)
 
-  CALL smooth_ctpp_lm(CTpp_full,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_full,npix,npol,lmax,window=Wl)
 
 !-------------------------------------------------------------------
 ! Allocate main data blocks
@@ -300,7 +308,7 @@ PROGRAM Topology_Lmarg
 !     CTpp       - Cut sky pixel-pixel correlation for given rotation, norm ampl
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
 
-  allocate(CTpp_eval(0:npix_fits-1))
+  allocate(CTpp_eval(0:ntot-1))
   allocate(CTpp(0:nmode_cut-1,0:nmode_cut-1))
   allocate(CNTpp(0:nmode_cut-1,0:nmode_cut-1))
 
@@ -310,8 +318,8 @@ PROGRAM Topology_Lmarg
   CALL SORT_AND_LIMIT_EIGENVALUES()
   CALL NORMALIZE_EIGENVALUES(CTpp_norm)
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
-  allocate(CTpp_cplm(0:lmax*(lmax+2),0:n_evalues-1))
-  CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,lmax,w8ring)
+  allocate(CTpp_cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1))
+  CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,npol,lmax,w8ring)
 
   do iter=1,niter
 !-------------------------------------------------------------------
