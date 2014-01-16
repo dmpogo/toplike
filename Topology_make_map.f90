@@ -8,6 +8,7 @@ PROGRAM Topology_make_map
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
   USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate,      ONLY : getcplm, rotate_ctpp
+  USE ct_io
   USE PIX_TOOLS
   IMPLICIT NONE
 
@@ -95,21 +96,14 @@ PROGRAM Topology_make_map
   ENDIF
 
 !-------------------------------------------------------------------
-! Read full sky CTpp in
+! Read full sky CTpp in while allocating global working array
 !
-  open(102,file=TRIM(infile),status='old',form='unformatted')
-  read(102) npix_fits,npol
+  call ReadCTpp(infile,FullSkyWorkSpace,npix_fits,npol,overwrite=.true.)
   nside = npix2nside(npix_fits)
   write(0,'(2(a6,I6))')'nside=',nside,' npix=',npix_fits
   if ( nside == -1 ) stop 'Size of Ctpp array does not match any nside'
   ntot=npix_fits*npol
-
-!-------------------------------------------------------------------
-! Allocate global working array for full sky manipulations
-  allocate(FullSkyWorkSpace(0:ntot-1,0:ntot-1))
   CTpp_full => FullSkyWorkSpace
-  read(102)CTpp_full
-  close(102)
 
 ! Set experimental beam and pixel window to smooth CTpp
   allocate ( Wl(0:lmax,1:npol) )
@@ -118,7 +112,7 @@ PROGRAM Topology_make_map
   else
      CALL collect_beams(Wl,lmax,nside=nside,reset=.true.)
   endif
-  CALL smooth_ctpp_lm(CTpp_full,ntot,npol,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_full,npix_fits,npol,lmax,window=Wl)
   
 !-------------------------------------------------------------------
 !     CTpp_eval  - (with CTpp_evec) - full sky theoretical normalized

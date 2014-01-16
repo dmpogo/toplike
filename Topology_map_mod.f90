@@ -132,9 +132,9 @@ CONTAINS
     
     INTEGER :: i,j,ordering,nmaps,lcount,iter_order=5
     logical :: convert_from_nested=.false.
-    logical,     DIMENSION(:,:),     ALLOCATABLE :: bool_mask
-    complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: alm
-    complex(DP), DIMENSION(:,:,:,:), ALLOCATABLE :: clm
+    logical,     DIMENSION(:,:),   ALLOCATABLE :: bool_mask
+    complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: alm
+    complex(DP), DIMENSION(:,:,:), ALLOCATABLE :: clm
     REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: wmap_noise, wmap_signal
     REAL(SP), DIMENSION(:,:), ALLOCATABLE :: wmap_data, wmap_mask 
@@ -209,8 +209,8 @@ CONTAINS
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
     IF (add_noise.and.do_Gsmooth) THEN
        call getclm(clm, lcount, wmap_noise, npix_fits, 1, lmax, w8_file=w8_file)
-       call smooth_clm(clm, 1, lcount, Wl, lmax)
-       call getcpp(map_npp, npix_cut, clm, lcount, 1, nside, mask=( wmap_mask > 0.5 ))
+       call smooth_clm(clm, lcount, 1, Wl, lmax)
+       call getcpp(map_npp, clm, lcount, 1, nside, mask=( wmap_mask > 0.5 ))
     ELSE
        map_npp=0.0_dp
     ENDIF
@@ -245,7 +245,7 @@ CONTAINS
     logical :: convert_from_nested=.false.
     logical,     DIMENSION(:,:),     ALLOCATABLE :: bool_mask
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: alm
-    complex(DP), DIMENSION(:,:,:,:), ALLOCATABLE :: clm
+    complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: clm
     REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise, WORK
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
     REAL(DP), DIMENSION(0:3)              :: mpoles
@@ -371,8 +371,8 @@ CONTAINS
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
     IF (add_noise.and.do_Gsmooth) THEN
        call getclm(clm, lcount, exp_noise, npix_fits, nmaps, lmax, w8_file=w8_file)
-       call smooth_clm(clm, nmaps, lcount, Wl, lmax)
-       call getcpp(map_npp, npix_cut, clm, lcount, nmaps, nside, mask=bool_mask)
+       call smooth_clm(clm, lcount, nmaps, Wl, lmax)
+       call getcpp(map_npp, clm, lcount, nmaps, nside, mask=bool_mask)
     ELSE
        map_npp=0.0_dp
     ENDIF

@@ -22,7 +22,7 @@ CONTAINS
       if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
          call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,3*ntot,INFO)
       else    ! General case, define eigenvectors orthonormal wrt weights
-
+         write(0,*)'Using ring weights'
          ! Set diagonal matrix of weights Bweights
          allocate( Bweights(0:ntot-1, 0:ntot-1) )
          Bweights = 0.d0
