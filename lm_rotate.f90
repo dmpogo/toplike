@@ -164,7 +164,7 @@ contains
 
     npix=nside2npix(nside)
 
-!$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(p,map,alm,indl,l,m)
+!$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(ip,p,map,alm,indl,l,m)
     DO p = 0, n_evalues - 1
 
 !$OMP CRITICAL       

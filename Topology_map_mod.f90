@@ -19,7 +19,7 @@ CONTAINS
 
     type(planck_rng)        :: rng_handle
     real(DP),    allocatable, dimension(:)     :: WORK
-    real(DP),    allocatable, dimension(:,:)   :: random_numbers
+    real(DP),    allocatable, dimension(:)     :: random_numbers
     complex(DP), allocatable, dimension(:,:,:) :: alm
     integer(I4B)            :: i, p, np, iter_order=5
  
@@ -45,15 +45,17 @@ CONTAINS
     endif
 
 ! Generate random set of CTpp eigenvalues (sqrt)
-    allocate(random_numbers(0:n_evalues-1,1))
+    allocate(random_numbers(0:n_evalues-1))
     do i = 0, n_evalues - 1
-       random_numbers(i,1) = rand_gauss(rng_handle)*sqrt(ampl*CTpp_eval(i))
+       random_numbers(i) = rand_gauss(rng_handle)*sqrt(ampl*CTpp_eval(i))
     enddo
-
+    
 ! Combine correlated and noise map on full sky
     allocate( WORK(0:ntot-1) )
-    call dgemm('N','N',ntot,1,n_evalues,1.0_dp,CTpp_evec,ntot,random_numbers,n_evalues,1.0_dp,WORK,ntot)
-    map=reshape( WORK, (/ npix_fits,npol /) )
+    call dgemv('N',ntot,n_evalues,1.0_dp,CTpp_evec,ntot,random_numbers,1,0.0_dp,WORK,1)
+    do p=1,npol
+       map(:,p)=map(:,p)+WORK((p-1)*npix_fits:p*npix_fits-1)
+    enddo
     deallocate(WORK,random_numbers)
     write(0,*)'random signal map has been generated and added to noise'
 
