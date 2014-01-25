@@ -75,14 +75,13 @@ CONTAINS
 
       where(CTpp_eval < 0.0_dp) CTpp_eval = 0.0_dp
       call SET_N_EVALUES(CTpp_eval,evalue_cut_fsky,n_evalues,evalue_min)
-! ====================
+
       write(0,*)evalue_min, n_evalues
       return
    end subroutine SORT_AND_LIMIT_EIGENVALUES
 
 
    subroutine RECONSTRUCT_FROM_EIGENVALUES()
-   USE basis_modes
    ! Eigenvalues in CTpp_eval + eigenfunctions in CTpp_evec -> 
    !        cut sky CTpp(nmode_cut,nmode_cut) 
    ! Note: only significant eigenvalues (up to n_evalues) are used
@@ -176,6 +175,7 @@ CONTAINS
    end subroutine INVERT_CTPP_SVD
 
    subroutine SET_N_EVALUES(D,evalue_cut_in,n_evalues,evalue_min_out)
+   ! Returns number of n_evalues, not index in the array
    REAL(DP),         intent(inout), dimension(0:) :: D
    TYPE(EVALUE_CUT), intent(in)                   :: evalue_cut_in
    INTEGER(I4B),     intent(out)                  :: n_evalues
@@ -183,28 +183,35 @@ CONTAINS
 
    REAL(DP)          :: evalue_min
    INTEGER(I4B)      :: npix
+   LOGICAL           :: descending=.false.
 
       npix=size(D,1)
-      if ( D(0) < D(npix-1) ) then
-         stop 'Eigenvalue array must be sorted in decreasing order'
-      endif
+      if ( D(0) < D(npix-1) ) descending=.true.
 
       if ( evalue_cut_in%STRATEGY == S_NONE ) then
          n_evalues = count(D > 0.0_dp)
-         evalue_min=0.0_dp
+         evalue_min= minval(D, mask = D > 0.0_dp)
       else
          if ( evalue_cut_in%STRATEGY == S_CONDITIONING ) then 
-            evalue_min   = evalue_cut_in%condition_number*D(0)
+            evalue_min   = evalue_cut_in%condition_number*maxval(D)
             n_evalues    = count(D >= evalue_min)
          else if ( evalue_cut_in%STRATEGY == S_LCUT ) then
             n_evalues = (evalue_cut_in%lmax + 1)**2 - 4
-            evalue_min = D(n_evalues-1)
+            if ( descending ) then
+               evalue_min = D(n_evalues-1)
+            else
+               evalue_min = D(npix-n_evalues)
+            endif
          else if ( evalue_cut_in%STRATEGY == S_NCUT ) then
             n_evalues = evalue_cut_in%nmax
-            evalue_min = D(n_evalues-1)
+            if ( descending ) then
+               evalue_min = D(n_evalues-1)
+            else
+               evalue_min = D(npix-n_evalues)
+            endif
          endif
          if ( evalue_cut_in%SET_BAD_MODES_HIGH ) then
-            D(n_evalues:npix-1)=evalue_cut_in%BAD_MODES_NOISE
+            where(D < evalue_min) D=evalue_cut_in%BAD_MODES_NOISE
             n_evalues = npix
          endif
       endif
@@ -214,5 +221,74 @@ CONTAINS
         
       return
    end subroutine SET_N_EVALUES
+
+
+   subroutine SET_BASIS_MODES()
+   ! Basis modes are eigenmodes of fiducial CTpp_fid on a cut sky
+
+   real(DP),allocatable,dimension(:,:) :: Bweights
+   real(DP),   dimension(0:npix_cut-1) :: eval
+   real(DP),   dimension(3*npix_cut)   :: WORK
+   integer(I4B)                        :: INFO,ip,ic
+
+      if ( .not.associated(CTpp_fid,FullSkyWorkSpace) ) then
+         stop 'CTpp_fid has not been set in FullSkyWorkSpace'
+      endif
+
+      allocate( Bweights(0:npix_cut-1, 0:npix_cut-1) )
+      Bweights = 0.0_dp
+
+      ic=0
+      do ip=0,ntot-1
+         if (map_mask(ip)) then
+            CTpp_fid(0:npix_cut-1,ic)=pack(CTpp_fid(:,ip),map_mask)
+            Bweights(ic,ic)=w8pix(ip,1)
+            ic=ic+1
+         endif
+      enddo
+   
+      ! Solve generalized problem CTpp*B*evec = eval*evec
+      call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+      deallocate(Bweights)
+
+      ! Set nmode_cut count of eigenvalues left after the cut
+      call SET_N_EVALUES(eval,evalue_cut_csky,nmode_cut)
+
+      ! Reorder the sorting to decreasing and store eigenvectors
+      if (allocated(VM)) deallocate(VM)
+      allocate( VM(0:npix_cut-1,0:nmode_cut-1) )
+      forall(ic=0:nmode_cut-1) VM(:,ic) = CTpp_fid(:,npix_cut-1-ic)
+      
+      CTpp_fid => NULL()
+      return
+   end subroutine SET_BASIS_MODES
+
+   subroutine PROJECT_MATRIX_ONTO_BASIS_MODES(mat)
+   ! Projects matrix onto a set of globally saved basis modes
+   real(DP), intent(inout), dimension(:,:) :: mat
+   
+   real(DP), allocatable, dimension(:,:)   :: mat_temp
+
+      allocate(mat_temp(npix_cut,nmode_cut))
+      call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,mat,npix_cut,VM,npix_cut,0.0_dp,mat_temp,npix_cut)
+      call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,VM,npix_cut,mat_temp,npix_cut,0.0_dp,mat,npix_cut)
+      deallocate(mat_temp)
+
+      return
+   end subroutine PROJECT_MATRIX_ONTO_BASIS_MODES
+
+   subroutine PROJECT_VECTOR_ONTO_BASIS_MODES(vec)
+   ! Projects vector onto a set of globally saved basis modes
+   real(DP), intent(inout), dimension(0:) :: vec
+   
+   real(DP), allocatable, dimension(:)   :: vec_temp
+
+      allocate(vec_temp(nmode_cut))
+      call DGEMV('T',npix_cut,nmode_cut,1.0_dp,VM,npix_cut,vec,1,0.0_dp,vec_temp,1)
+      vec(0:nmode_cut-1)=vec_temp
+      deallocate(vec_temp)
+
+      return
+   end subroutine PROJECT_VECTOR_ONTO_BASIS_MODES
 
 END MODULE ctpp_eigen_mod

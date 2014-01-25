@@ -9,7 +9,6 @@ PROGRAM Topology_Lmarg
   USE Topology_types
   USE Topology_map_mod
   USE Topology_Lmarg_mod
-  USE basis_modes
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
   USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate, ONLY : getcplm

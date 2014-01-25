@@ -45,9 +45,9 @@ LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio  -lfftw
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 
-OBJ    	= Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o basis_modes.o Topology_Lmarg_mod.o Topology_Lmarg.o
+OBJ    	= Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 
-OBJMAP  = Topology_types.o Topology_map_mod.o Topology_make_map.o lm_rotate.o ctpp_eigen_mod.o basis_modes.o
+OBJMAP  = Topology_types.o Topology_map_mod.o Topology_make_map.o lm_rotate.o ctpp_eigen_mod.o
 # ------------------------- Rules ----------------------------
 
 default: all
@@ -61,12 +61,11 @@ topmap: $(OBJMAP) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJMAP) $(LIB) $(CTPPPROC)
 
 Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o \
-			Topology_map_mod.o basis_modes.o
+			Topology_map_mod.o
 Topology_make_map.o   : Topology_types.o Topology_map_mod.o
 Topology_Lmarg_mod.o  : Topology_types.o ctpp_eigen_mod.o nr_minimization.o
 Topology_map_mod.o    : Topology_types.o 
-ctpp_eigen_mod.o      : Topology_types.o basis_modes.o
-basis_modes.o         : Topology_types.o
+ctpp_eigen_mod.o      : Topology_types.o
 
 %.o    : %.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
