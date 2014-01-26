@@ -11,7 +11,8 @@ PROGRAM Topology_Lmarg
   USE Topology_Lmarg_mod
   USE healpix_extras, ONLY : Read_w8ring, ring2pixw8
   USE beams,          ONLY : collect_beams, smooth_ctpp_lm
-  USE lm_rotate, ONLY : getcplm
+  USE lm_rotate,      ONLY : getcplm
+  USE ct_io
   USE PIX_TOOLS
   IMPLICIT NONE
 
@@ -47,6 +48,7 @@ PROGRAM Topology_Lmarg
   read(*,*) do_nice_out_file
 ! Read in parameters
   read(*,*) nside
+  read(*,*) npol
 ! Next four parameters are strictly for printout
   read(*,*) nsh
   read(*,*) OmegaL
@@ -238,9 +240,6 @@ PROGRAM Topology_Lmarg
   write(0,*)'Read the data in'
 
 !-------------------------------------------------------------------
-! Allocate global working array for full sky manipulations
-  allocate(FullSkyWorkSpace(0:ntot-1,0:ntot-1))
-
 ! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
   if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
@@ -251,20 +250,13 @@ PROGRAM Topology_Lmarg
 !-------------------------------------------------------------------
 ! Read in fiducial model and set up cut-sky mode basis
 
-  open(104,file=TRIM(fidfile),status='old',form='unformatted')
-  read(104) npix_fits,npol
-  write(0,*)'npix=',npix_fits
+  CALL ReadCTpp(fidfile,FullSkyWorkSpace,npix_fits,npol,overwrite=.true.)
+  write(0,'(2(a6,I6))')'nside=',nside,' npix=',npix_fits
   if ( nside /= npix2nside(npix_fits) ) then
-     write(0,*)'Size of fiducial Ctpp array does not match requested NSIDE',npix_fits,nside
-     stop
+     stop 'Size of fiducial Ctpp array does not match requested NSIDE'
   endif
-  if ( npix_fits*npol < ntot ) then
-     write(0,*)'Size of fiducial Ctpp array does not have all polarization',npol
-     stop
-  endif
+  ntot=npix_fits*npol
   CTpp_fid => FullSkyWorkSpace
-  read(104)CTpp_fid
-  close(104)
 
   CALL smooth_ctpp_lm(CTpp_fid,ntot,npol,lmax,window=Wl)
   CALL SET_BASIS_MODES()
@@ -282,27 +274,16 @@ PROGRAM Topology_Lmarg
 !-------------------------------------------------------------------
 ! Read full sky CTpp in
 !
-  open(102,file=TRIM(infile),status='old',form='unformatted')
-  read(102) npix_fits,npol
-  write(0,*)'npix=',npix_fits
-  if ( nside /= npix2nside(npix_fits) ) then
-     write(0,*)'Size of Ctpp array does not match requested NSIDE',npix_fits,nside
-     stop
-  endif
-  if ( npix_fits*npol < ntot ) then
-     write(0,*)'Size of Ctpp array does not have all polarization',npol
-     stop
-  endif
+  CALL ReadCTpp(infile,FullSkyWorkSpace,npix_fits,npol,overwrite=.false.)
   CTpp_full => FullSkyWorkSpace
-  read(102)CTpp_full
-  close(102)
 
-  CALL smooth_ctpp_lm(CTpp_full,npix,npol,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_full,ntot,npol,lmax,window=Wl)
 
 !-------------------------------------------------------------------
 ! Allocate main data blocks
 !     CTpp_evec  - (with CTpp_eval) - full sky theoretical normalized
-!                  pixel-pixel correlations in eigenvector decomposition
+!                  pixel-pixel correlations in eigenvector decomposition.
+!                  eigenvectors storage CTpp_evec points to FullSkyWorkSpace
 !     CTpp_cplm  - lm decomposition of CTpp_evec truncated to largest evalues
 !     CTpp       - Cut sky pixel-pixel correlation for given rotation, norm ampl
 !     CNTpp      - at the end of calculations = (ampl_best*Ctpp+N)^{-1}
@@ -320,9 +301,11 @@ PROGRAM Topology_Lmarg
   allocate(CTpp_cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,npol,lmax,w8ring)
 
-  do iter=1,niter
+  write(0,*) 'Preparation of CTpp completed'
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
+  do iter=1,niter
+
   if (do_rotate) then
      if (find_best_angles) then
         CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
