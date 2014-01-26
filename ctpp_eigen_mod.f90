@@ -242,7 +242,7 @@ CONTAINS
       do ip=0,ntot-1
          if (map_mask(ip)) then
             CTpp_fid(0:npix_cut-1,ic)=pack(CTpp_fid(:,ip),map_mask)
-            Bweights(ic,ic)=w8pix(ip,1)
+            Bweights(ic,ic)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
             ic=ic+1
          endif
       enddo
