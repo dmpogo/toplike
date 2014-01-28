@@ -48,17 +48,22 @@ INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 OBJ    	= Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 
 OBJMAP  = Topology_types.o Topology_map_mod.o Topology_make_map.o lm_rotate.o ctpp_eigen_mod.o
+
+OBJMERGE= merge_maps.o
 # ------------------------- Rules ----------------------------
 
 default: all
 
-all: topmarg topmap
+all: topmarg topmap merge_maps
 
 topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
 
 topmap: $(OBJMAP) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJMAP) $(LIB) $(CTPPPROC)
+
+merge_maps:	$(OBJMERGE)
+	$(FC) $(FFLAGS) -o $@ $(OBJMERGE) $(LIB)
 
 Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o \
 			Topology_map_mod.o
@@ -76,7 +81,7 @@ ctpp_eigen_mod.o      : Topology_types.o
 tidy:
 	-rm -f $(OBJ) $(OBJMAP)
 clean: tidy
-	-rm -f topmarg topmap
+	-rm -f topmarg topmap merge_maps
 cleanall: clean
 	/bin/rm -f $(MODULEDIR1)/[!n]*.mod
 
