@@ -6,12 +6,19 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: code = 'TOPMARG'
   CHARACTER(LEN=*), PARAMETER :: version = 'Winter2014'
   
+! ====================================================
 ! Debugging output
   LOGICAL  :: DEBUG=.false.
   LOGICAL  :: STORE_REBINNED_MAPS=.true., STOP_AFTER_STORING_REBINNED_MAPS=.false.
 
-
+! ====================================================
 ! Control
+
+! Eigenmode basis type:   1 - S/N, 2 - C Bweight
+
+  INTEGER(I1B), PARAMETER :: BASIS_TYPE = 2
+
+! Eigenmode cut strategy, for cut sky basis and full sky CTpp_full
   INTEGER(I1B), PARAMETER :: S_NONE=0, S_LCUT=1, S_NCUT=2, S_CONDITIONING=3
   TYPE EVALUE_CUT
        INTEGER(I1B)    :: STRATEGY=S_NONE
@@ -22,18 +29,24 @@ MODULE TOPOLOGY_TYPES
        REAL(DP)        :: BAD_MODES_NOISE=1.d4
   END TYPE EVALUE_CUT
 
-  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
+!  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
+  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NCUT,0,21,0.0,.false.,0.0)
 !  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1085,0.0,.false.,0.0)
   TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,837,0.0,.false.,0.0)
 !  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
 
+! ====================================================
+
+
   REAL(DP),    PARAMETER :: Top_bad_value = 100000.d0
 
+! ====================================================
 ! CTpp normalization
   integer(I4B)  :: lnorm=10
   real(DP)      :: curlCl_in_mK = 1.d-2  ! 10x real to have ampl~-2
 !  real(DP)      :: curlCl_in_mK = 1.d-3  !  temporary for maps
 
+! ====================================================
 ! Data
   CHARACTER(LEN=6)                           :: expdata_format='WMAP'
   REAL(DP)                                   :: expdata_scale=1.0_dp
@@ -41,6 +54,7 @@ MODULE TOPOLOGY_TYPES
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
 
+! ====================================================
 ! Global arrays to hold different matrices
 
   ! Intermittent data that operates in full sky (npix_fits, npix_fits) space
@@ -61,21 +75,23 @@ MODULE TOPOLOGY_TYPES
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: Wl, w8ring, w8pix
   REAL(DP),    DIMENSION(1:3,1:3)            :: euler_mat
 
+! ====================================================
 ! Files
   CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
   CHARACTER(len=255)  :: w8_file, beam_file
   CHARACTER(len=255)  :: infile, fidfile
   CHARACTER(len=255)  :: fake_file
 
+! ====================================================
 ! Global numerical variables
   REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
-  INTEGER  :: nside, npix, npix_fits
-  INTEGER  :: npix_cut, ntot
-  INTEGER  :: npol, npix_cut_I, npix_cut_QU
+  INTEGER  :: nside, npix_fits, npol, ntot
+  INTEGER  :: npix_cut, npix_cut_I, npix_cut_QU
   INTEGER  :: lmax, iseed, nsh
   INTEGER  :: n_evalues, nmode_cut
 
-! Control variables
+! ====================================================
+! Job Control variables
   LOGICAL  :: do_mask, do_rotate, find_best_angles, add_noise
   LOGICAL  :: do_Gsmooth, do_expsmooth
   LOGICAL  :: make_map, make_map_only, add_map_noise

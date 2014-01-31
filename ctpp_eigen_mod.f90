@@ -10,7 +10,7 @@ CONTAINS
    ! Full sky CTpp stored in CTpp_evec(ntot,ntot) -> 
    !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
-   integer(I4B)                          :: INFO,ipix,p,np
+   integer(I4B)                          :: INFO,ip
    real(DP), allocatable, dimension(:)   :: WORK
    real(DP), allocatable, dimension(:,:) :: Bweights
 
@@ -19,22 +19,21 @@ CONTAINS
       endif
          
       allocate(WORK(0:3*ntot-1))
-      if ( w8ring(1,1) == 1.d0 ) then  ! Weights are trivial
+      if ( w8ring(1,1) == 1.d0 ) then 
+         ! Trivial weights
          call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,3*ntot,INFO)
-      else    ! General case, define eigenvectors orthonormal wrt weights
+      else   
+         ! General case,  C B x = lambda x eigenproblem
          write(0,*)'Using ring weights'
-         ! Set diagonal matrix of weights Bweights
          allocate( Bweights(0:ntot-1, 0:ntot-1) )
-         Bweights = 0.d0
-         do p=1,npol
-            np=(p-1)*npix_fits
-            forall(ipix=0:npix_fits-1) Bweights(ipix+np,ipix+np)=w8pix(ipix,p)
-         enddo
-
-         ! Solve generalized problem CTpp*B*evec = eval*evec
+         Bweights=0.0_dp
+         forall(ip=0:ntot-1)
+            Bweights(ip,ip)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
+         end forall
          call DSYGV(2,'V','L',ntot,CTpp_full,ntot,Bweights,ntot,CTpp_eval,WORK,3*ntot,INFO)
          deallocate(Bweights)
-      endif   
+      endif
+
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
 
 ! Full sky work space now contains eigenvectors
@@ -87,7 +86,7 @@ CONTAINS
    ! Note: only significant eigenvalues (up to n_evalues) are used
    ! Note: CTpp_evec is corrupted on return
 
-   integer :: ipix,jpix,ne,ic,jc
+   integer :: ne
 
       if ( .not.associated(CTpp_evec,FullSkyWorkSpace) ) then
          stop 'CTpp_evec has not been set in FullSkyWorkSpace'
@@ -224,32 +223,49 @@ CONTAINS
 
 
    subroutine SET_BASIS_MODES()
-   ! Basis modes are eigenmodes of fiducial CTpp_fid on a cut sky
+   ! Basis modes are either
+   !     1) eigenmodes of fiducial CTpp_fid on a cut sky
+   ! or  2) signal to noise eigenmode for N^{-1} CTpp_fid on a cut sky
 
-   real(DP),allocatable,dimension(:,:) :: Bweights
-   real(DP),   dimension(0:npix_cut-1) :: eval
-   real(DP),   dimension(3*npix_cut)   :: WORK
-   integer(I4B)                        :: INFO,ip,ic
+   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag
+   real(DP), dimension(:,:), allocatable :: Bweights
+   real(DP), dimension(3*npix_cut)       :: WORK
+   real(DP)                              :: DDOT
+   integer(I4B)                          :: INFO,ip,ic,iev
 
       if ( .not.associated(CTpp_fid,FullSkyWorkSpace) ) then
          stop 'CTpp_fid has not been set in FullSkyWorkSpace'
       endif
 
-      allocate( Bweights(0:npix_cut-1, 0:npix_cut-1) )
-      Bweights = 0.0_dp
-
+      ! Compactify CTpp_fid and Bweights to cut sky
       ic=0
       do ip=0,ntot-1
          if (map_mask(ip)) then
             CTpp_fid(0:npix_cut-1,ic)=pack(CTpp_fid(:,ip),map_mask)
-            Bweights(ic,ic)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
+            Bweights_diag(ic)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
             ic=ic+1
          endif
       enddo
-   
-      ! Solve generalized problem CTpp*B*evec = eval*evec
-      call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
-      deallocate(Bweights)
+
+      if ( BASIS_TYPE == 2 ) then
+         ! Solve generalized problem CTpp*B*evec = eval*evec
+         write(0,*)'weighted eigenvalue basis'
+         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
+         forall (ic=0:npix_cut-1) Bweights(ic,ic)=Bweights_diag(ic)
+         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+         deallocate(Bweights)
+      else if ( BASIS_TYPE == 1 ) then
+         ! Solve generalized problem CTpp*evec = eval*Npp*evec
+         write(0,*)'signal to noise basis'
+         call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,map_npp,npix_cut,eval,WORK,3*npix_cut,INFO)
+         ! Multiply eigenvectors by B^{-1} and renormalize
+         do iev=0,npix_cut-1
+           CTpp_fid(:,iev)=CTpp_fid(:,iev)/Bweights_diag
+           CTpp_fid(:,iev)=CTpp_fid(:,iev)/sqrt(DDOT(npix_cut,CTpp_fid(:,iev),1,CTpp_fid(:,iev),1))
+         enddo 
+      else
+         stop 'Unknown BASIS_TYPE'
+      endif
 
       ! Set nmode_cut count of eigenvalues left after the cut
       call SET_N_EVALUES(eval,evalue_cut_csky,nmode_cut)
@@ -257,7 +273,7 @@ CONTAINS
       ! Reorder the sorting to decreasing and store eigenvectors
       if (allocated(VM)) deallocate(VM)
       allocate( VM(0:npix_cut-1,0:nmode_cut-1) )
-      forall(ic=0:nmode_cut-1) VM(:,ic) = CTpp_fid(:,npix_cut-1-ic)
+      forall(iev=0:nmode_cut-1) VM(:,iev) = CTpp_fid(:,npix_cut-1-iev)
       
       CTpp_fid => NULL()
       return
