@@ -13,7 +13,7 @@ PROGRAM Topology_make_map
   IMPLICIT NONE
 
   LOGICAL :: found
- 
+
   real(DP)     :: ampl, ang(3), CTpp_norm
   real(DP),    allocatable, dimension(:,:)   :: map
 
@@ -35,7 +35,8 @@ PROGRAM Topology_make_map
 ! fake map output file
   read(*,'(a)') fake_file
 
-  read(*,*) add_map_noise
+  read(*,*) add_noise_diag
+  read(*,*) add_noise_cov
   read(*,*) iseed
 
   read(*,*) beam_fwhm
@@ -85,14 +86,21 @@ PROGRAM Topology_make_map
      WRITE(0,*) 'Using a noise file', TRIM(map_noise_file)
   ELSE
      WRITE(0,*) 'No separate noise file'  ! Some formats (WMAP) do not require 
-                                 ! separate noise file, so add_map_noise
+                                 ! separate noise file, so add_noise
                                  ! will decide if any of the noise is used
   ENDIF
 
-  IF (add_map_noise) THEN
-     WRITE(0,*) 'Adding noise to the map'
+  IF ( add_noise_diag .or. add_noise_cov ) THEN
+     add_noise = .true.
+     WRITE(0,*) 'Adding noise to the map, diag=',add_noise_diag,' cov=',add_noise_cov
   ELSE
+     add_noise = .false.
      WRITE(0,*) 'Not adding noise'
+  ENDIF
+
+  IF ( add_noise_diag .and. add_noise_cov ) THEN
+     WRITE(0,*) 'Warning: both diag and covariance noise are defined, use diag'
+     add_noise_cov = .false.
   ENDIF
 
 !-------------------------------------------------------------------
@@ -104,8 +112,11 @@ PROGRAM Topology_make_map
   if ( nside == -1 ) stop 'Size of Ctpp array does not match any nside'
   ntot=npix_fits*npol
   CTpp_full => FullSkyWorkSpace
+  CTpp_full =  ampl*CTpp_full
 
 ! Set experimental beam and pixel window to smooth CTpp
+  call Read_w8ring(nside,w8ring,w8_file)
+  call ring2pixw8(w8ring,w8pix)
   allocate ( Wl(0:lmax,1:npol) )
   if (do_expsmooth) then
      CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.true.)
@@ -114,12 +125,23 @@ PROGRAM Topology_make_map
   endif
   CALL smooth_ctpp_lm(CTpp_full,npix_fits,npol,lmax,window=Wl)
   
+! Get map_npp, ensure it is full sky
+  if ( add_noise ) then
+     do_Gsmooth=.false.
+     do_mask = .false.
+     CALL ReadExpData(TRIM(ADJUSTL(expdata_format)))
+     if ( npix_cut /= ntot ) then
+        stop 'Ensure that noise is not masked'
+     endif
+     write(0,*)'Read the noise in'
+     CTpp_full = CTpp_full+map_npp
+     write(0,*) maxval(map_npp)
+  endif
+
 !-------------------------------------------------------------------
 !     CTpp_eval  - (with CTpp_evec) - full sky theoretical normalized
 !                  pixel-pixel correlations in eigenvector decomposition
 
-  call Read_w8ring(nside,w8ring,w8_file)
-  call ring2pixw8(w8ring,w8pix)
   allocate(CTpp_eval(0:ntot-1))
 
 ! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval

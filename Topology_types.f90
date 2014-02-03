@@ -29,8 +29,7 @@ MODULE TOPOLOGY_TYPES
        REAL(DP)        :: BAD_MODES_NOISE=1.d4
   END TYPE EVALUE_CUT
 
-!  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
-  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NCUT,0,21,0.0,.false.,0.0)
+  TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
 !  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1085,0.0,.false.,0.0)
   TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,837,0.0,.false.,0.0)
 !  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
@@ -92,8 +91,9 @@ MODULE TOPOLOGY_TYPES
 
 ! ====================================================
 ! Job Control variables
-  LOGICAL  :: do_mask, do_rotate, find_best_angles, add_noise
+  LOGICAL  :: do_mask, do_rotate, find_best_angles
+  LOGICAL  :: add_noise, add_noise_diag, add_noise_cov
   LOGICAL  :: do_Gsmooth, do_expsmooth
-  LOGICAL  :: make_map, make_map_only, add_map_noise
+  LOGICAL  :: make_map, make_map_only
 
 END MODULE TOPOLOGY_TYPES

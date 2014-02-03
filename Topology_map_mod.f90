@@ -9,12 +9,11 @@ MODULE Topology_map_mod
   
 CONTAINS
 
-  SUBROUTINE make_fake_map(ampl,map)
+  SUBROUTINE make_fake_map(map)
     ! Works on eigenvalue decomposition of CTpp in CTpp_eval and CTpp_evec
     USE beams
     USE ALM_TOOLS
     USE RNGMOD
-    real(DP), intent(in)                               :: ampl
     real(DP), intent(out), allocatable, dimension(:,:) :: map
 
     type(planck_rng)        :: rng_handle
@@ -23,39 +22,21 @@ CONTAINS
     complex(DP), allocatable, dimension(:,:,:) :: alm
     integer(I4B)            :: i, p, np, iter_order=5
  
+    write(0,*)'Generating random map'
     if (allocated(map)) deallocate(map)
     allocate(map(0:npix_fits-1,1:npol))
-! if we add noise, generate random full sky noise map, else set it to zero
-    call rand_init(rng_handle,iseed)
-    if (add_map_noise) then
-       do_Gsmooth=.false.
-       do_mask=.false.
-       call ReadExpData(expdata_format)
-       if (npix_cut /= ntot) stop 'Must be full sky. Check noise masking'
-
-       do p = 1,npol
-          np=(p-1)*npix_fits
-          do i = 0, npix_fits-1
-             map(i,p)=rand_gauss(rng_handle)*sqrt(map_npp(i+np,i+np))
-          enddo
-       enddo
-       write(0,*)'random noise map has been generated'
-    else
-       map=0.0_dp
-    endif
 
 ! Generate random set of CTpp eigenvalues (sqrt)
     allocate(random_numbers(0:n_evalues-1))
+    call rand_init(rng_handle,iseed)
     do i = 0, n_evalues - 1
-       random_numbers(i) = rand_gauss(rng_handle)*sqrt(ampl*CTpp_eval(i))
+       random_numbers(i) = rand_gauss(rng_handle)*sqrt(CTpp_eval(i))
     enddo
     
 ! Combine correlated and noise map on full sky
     allocate( WORK(0:ntot-1) )
     call dgemv('N',ntot,n_evalues,1.0_dp,CTpp_evec,ntot,random_numbers,1,0.0_dp,WORK,1)
-    do p=1,npol
-       map(:,p)=map(:,p)+WORK((p-1)*npix_fits:p*npix_fits-1)
-    enddo
+    map=reshape( WORK, (/ npix_fits, npol /) )
     deallocate(WORK,random_numbers)
     write(0,*)'random signal map has been generated and added to noise'
 
@@ -82,15 +63,16 @@ CONTAINS
     CHARACTER(LEN=80), DIMENSION(1:nlheader) :: header
     INTEGER :: iostatus, npix_loc, nmap_loc, nside_loc
     REAL    :: nullval
-    LOGICAL :: anynull,filefound
+    LOGICAL :: anynull,filefound, polarization=.true.
 
     !heal_map(:,1) = unpack(map_signal,map_mask,-1.6375d30)
     npix_loc =size(heal_map,1)
     nmap_loc =size(heal_map,2)
     nside_loc=npix2nside(npix_loc)
+    if ( npol == 1 ) polarization=.false.
 
-    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax)
-!    CALL add_card(header,'COMMENT','-----------------------------------------------')
+    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax,polar=polarization,fwhm_degree=beam_fwhm)
+
     INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
     IF(filefound) THEN
        open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
@@ -166,7 +148,7 @@ CONTAINS
 
     ALLOCATE(wmap_noise(0:npix_fits-1,1:1))
     wmap_noise = 0.0_dp
-    IF( add_noise .and. nmaps > 1 ) THEN
+    IF( add_noise_diag .and. nmaps > 1 ) THEN
        ! Assumes diagonal noise, 
        ! and wmap_data to contain inverse noise in the last map
        where( wmap_data(:,nmaps) > 0.0 ) wmap_noise(:,1) = 1.d0/wmap_data(:,nmaps)
@@ -209,7 +191,7 @@ CONTAINS
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-    IF (add_noise.and.do_Gsmooth) THEN
+    IF ( add_noise_diag.and.do_Gsmooth ) THEN
        call getclm(clm, lcount, wmap_noise, npix_fits, 1, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, 1, Wl, lmax)
        call getcpp(map_npp, clm, lcount, 1, nside, mask=( wmap_mask > 0.5 ))
@@ -226,7 +208,7 @@ CONTAINS
     endif
 
     ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
-    if (add_noise.and.(.not.do_Gsmooth) ) then
+    if ( add_noise_diag.and.(.not.do_Gsmooth) ) then
        diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
     endif
     DEALLOCATE(wmap_noise)
@@ -241,9 +223,10 @@ CONTAINS
     USE ctpplm_transforms
     USE beams
     USE ALM_TOOLS
+    USE ct_io
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
-    INTEGER :: i,j,ordering,ifpol,lcount,npix,nmaps,iter_order=5
+    INTEGER :: i,j,ordering,ifpol,lcount,npix,nmaps,nnoise,nmasks,iter_order=5
     logical :: convert_from_nested=.false.
     logical,     DIMENSION(:,:),     ALLOCATABLE :: bool_mask
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: alm
@@ -281,25 +264,34 @@ CONTAINS
     exp_data=exp_data*expdata_scale   ! convert to mK, from whatever input is
                                       ! assumes same scale for I and QU
 
-    IF( add_noise) THEN
-       ALLOCATE(exp_noise(0:npix-1,1:nmaps))
+    IF ( add_noise_diag ) THEN
        ! Assumes diagonal noise, 
-       ! and wmap_data to contain noise per pixel in same units as map
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
-       CALL input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix,nmaps)
+       ! and exp_noise to contain noise per pixel in same units as map
+       ! This expected to be changed at least due to QU correlation
+       write(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
+       allocate(exp_noise(0:npix-1,1:nmaps))
+       if (getsize_fits(map_noise_file,nmaps=nnoise) /= npix) &
+          stop 'sizes of the signal and noise files are inconsistent'
+       call input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix,nnoise)
+       if ( nnoise == 2 .and. nmaps == 3 ) exp_mask(:,3) = exp_mask(:,2)
        exp_noise=exp_noise*expdata_scale  ! convert to mK
        exp_noise=exp_noise**2             ! make the variance
-    ELSE
-       ALLOCATE(exp_noise(0:npix_fits-1,1:1))
-       exp_noise = 0.0_dp
+    ELSE IF ( add_noise_cov ) THEN
+       ! If noise is given as covariance, it should be in the  final
+       ! working pixelization. No infrastructure noise covariance coarsening.
+       call ReadCTpp(map_noise_file,exp_noise,npix_fits,nmaps)
     ENDIF
 
-    IF(do_mask) THEN
-       ALLOCATE(exp_mask(0:npix-1,1:nmaps))
-       WRITE(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
-       CALL input_map(TRIM(ADJUSTL(map_mask_file)),exp_mask,npix,nmaps)
+    ALLOCATE(exp_mask(0:npix-1,1:nmaps))
+    IF ( do_mask ) THEN
+       write(0,'(a,a)') '> ', TRIM(ADJUSTL(map_mask_file))
+       if (getsize_fits(map_mask_file,nmaps=nmasks) /= npix) &
+          stop 'sizes of the signal and mask files are inconsistent'
+       call input_map(TRIM(ADJUSTL(map_mask_file)),exp_mask,npix,nmasks)
+       if ( nmasks < nmaps ) then  ! copy the mask from the last present
+          forall(i=nmasks+1:nmaps) exp_mask(:,i) = exp_mask(:,nmasks)
+       endif
     ELSE
-       ALLOCATE(exp_mask(0:npix_fits-1,1:nmaps))
        exp_mask = 1
     ENDIF
 
@@ -320,11 +312,10 @@ CONTAINS
     if ( convert_from_nested ) then
        call convert_nest2ring(nside,exp_data)
        call convert_nest2ring(nside,exp_mask)
-       call convert_nest2ring(nside,exp_noise)
+       if ( add_noise_diag ) call convert_nest2ring(nside,exp_noise)
     endif
 
 ! Data in, store it in the linear arrays for analysis
-
 
     ALLOCATE(bool_mask(0:npix_fits-1,1:nmaps))
     bool_mask = .false.
@@ -340,13 +331,15 @@ CONTAINS
     endif
     DEALLOCATE(exp_mask)
 
+    ! Set ntot, and convert mask to linear array
     ntot = npix_fits*nmaps
+
     allocate(map_mask(0:ntot-1))
     map_mask = reshape(bool_mask, (/ ntot /))
 
 ! Count unmasked pixels 
     npix_cut = count(bool_mask)
-    write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',npix_fits
+    write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',ntot
     if (npix_cut == 0) STOP 'All pixels are masked'
     npix_cut_I  = count(bool_mask(:,1))
     npix_cut_QU = npix_cut-npix_cut_I
@@ -367,15 +360,24 @@ CONTAINS
     map_signal=PackMasked(exp_data,bool_mask)
 
 !========= Down there needs to be worked on ====================
-
-!Smooth noise if needed and store it in a cut sky matrix map_npp - THIS IS WRONG
-! Depends on decision on Cpp and Npp full sky format
+!Smooth noise if needed and store it in a cut sky matrix map_npp
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-    IF (add_noise.and.do_Gsmooth) THEN
+    IF ( do_Gsmooth ) THEN
+       ! Should work whether exp_noise is diagonal or covariance matrix
        call getclm(clm, lcount, exp_noise, npix_fits, nmaps, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, nmaps, Wl, lmax)
        call getcpp(map_npp, clm, lcount, nmaps, nside, mask=bool_mask)
-    ELSE
+    ELSE IF ( add_noise_cov ) THEN
+       ! cov matrix with no smoothing, direct masking
+       i = 0
+       do j=0,ntot-1
+          if ( map_mask(i) ) then
+             map_npp(:,i) = pack( exp_noise(:,j), map_mask )
+             i = i+1
+          endif
+       enddo
+    ELSE  
+       ! diag and no smoothing or no noise at all
        map_npp=0.0_dp
     ENDIF
 
@@ -394,7 +396,7 @@ CONTAINS
     endif
 
     ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
-    if (add_noise.and.(.not.do_Gsmooth) ) then
+    if ( add_noise_diag.and.(.not.do_Gsmooth) ) then
        diag_noise = diag_noise + PackMasked(exp_noise,bool_mask)
     endif
     DEALLOCATE(exp_noise)
@@ -435,7 +437,7 @@ CONTAINS
        call REBIN_FULL_SKY_WORK_TO(exp_mask)
     endif
 
-    if (add_noise) then
+    if ( add_noise_diag ) then
        ! Average data wth inverse noise weights, first step
        if ( do_mask ) where( mask ) exp_noise=1.0_dp
        work = exp_data/exp_noise
@@ -471,7 +473,7 @@ CONTAINS
        write(0,*)'Rebinned maps stored in default localtion'
        fake_file='rebinned_cmb.fits'
        call Write_map(exp_data)
-       if ( add_noise ) then
+       if ( add_noise_diag ) then
           fake_file='rebinned_noise.fits'
           call Write_map(exp_noise)
        endif
