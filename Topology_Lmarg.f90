@@ -65,7 +65,8 @@ PROGRAM Topology_Lmarg
   read(*,*) niter
   read(*,*) iseed
 
-  read(*,*) add_noise
+  read(*,*) add_noise_diag
+  read(*,*) add_noise_cov
   read(*,*) epsil
 
 !======================================================================
@@ -121,7 +122,7 @@ PROGRAM Topology_Lmarg
   INQUIRE(file=TRIM(map_mask_file),exist=found)
   IF (found) THEN
      do_mask = .TRUE.
-     WRITE(0,*) 'Using a mask', TRIM(map_mask_file)
+     WRITE(0,*) 'Using a mask ', TRIM(map_mask_file)
   ELSE
      do_mask = .FALSE.
      WRITE(0,*) 'Not using a mask'
@@ -129,22 +130,28 @@ PROGRAM Topology_Lmarg
 
   INQUIRE(file=TRIM(map_noise_file),exist=found)
   IF (found) THEN
-     WRITE(0,*) 'Using a noise file', TRIM(map_noise_file)
+     WRITE(0,*) 'Using a noise file ', TRIM(map_noise_file)
   ELSE
      WRITE(0,*) 'No noise file'  ! Some formats (WMAP) do not require 
                                  ! separate noise file, so add_noise
                                  ! will decide if any of the noise is used
+     IF ( add_noise_cov ) THEN
+        WRITE(0,*) 'Noise via covariance cant be used'
+        add_noise_cov = .false.
+     ENDIF
   ENDIF
 
-  IF (add_noise) THEN
-     IF (do_Gsmooth .or. do_expsmooth) THEN
-        WRITE(0,*) 'Using full smoothed noise matrix'
-     ELSE
-        WRITE(0,*) 'Using only diagonal noise'
-     ENDIF
+  IF ( add_noise_diag .or. add_noise_cov ) THEN
+     add_noise = .true.
+     WRITE(0,*) 'Adding noise to the map, diag=',add_noise_diag,' cov=',add_noise_cov
   ELSE
-     add_map_noise = .FALSE. !Cannot add noise if no noise file
-     WRITE(0,*) 'Not using noise'
+     add_noise = .false.
+     WRITE(0,*) 'Not adding noise'
+  ENDIF
+
+  IF ( add_noise_diag .and. add_noise_cov ) THEN
+     WRITE(0,*) 'Warning: both diag and covariance noise are defined, use diag'
+     add_noise_cov = .false.
   ENDIF
 
   IF (epsil == 0.0) THEN
@@ -258,7 +265,7 @@ PROGRAM Topology_Lmarg
   ntot=npix_fits*npol
   CTpp_fid => FullSkyWorkSpace
 
-  CALL smooth_ctpp_lm(CTpp_fid,ntot,npol,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_fid,npix_fits,npol,lmax,window=Wl)
   CALL SET_BASIS_MODES()
  
   write(0,*)'Basis modes defined'
@@ -277,7 +284,7 @@ PROGRAM Topology_Lmarg
   CALL ReadCTpp(infile,FullSkyWorkSpace,npix_fits,npol,overwrite=.false.)
   CTpp_full => FullSkyWorkSpace
 
-  CALL smooth_ctpp_lm(CTpp_full,ntot,npol,lmax,window=Wl)
+  CALL smooth_ctpp_lm(CTpp_full,npix_fits,npol,lmax,window=Wl)
 
 !-------------------------------------------------------------------
 ! Allocate main data blocks
