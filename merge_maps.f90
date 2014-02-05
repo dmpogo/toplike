@@ -19,30 +19,33 @@ PROGRAM merge_maps
 
     narg = iargc()
     if ( narg < 1 ) then
-       write(0,*)'Usage: merge_maps infile1 [infile2]'
+       write(0,*)'Usage: merge_maps infile1 [infile2 [manual]]'
        stop
     endif
 
     CALL getarg(1,infile1)
-    WRITE(0,'(a14,a)') 'Input  file : ', TRIM(infile1)
+    WRITE(0,'(a14,a)') 'Input1  file : ', TRIM(infile1)
 
     if ( narg >= 2 ) then
        CALL getarg(2,infile2)
     else
        infile2=infile1
     endif
+    WRITE(0,'(a14,a)') 'Input2  file : ', TRIM(infile2)
 
     outfile = TRIM(ADJUSTL(infile1))//'_IQU.fits'
-    infile1 = TRIM(ADJUSTL(infile1))//'_I.fits'
-    INQUIRE(file=TRIM(ADJUSTL(infile2))//'_QU.fits',exist=filefound)
-    if ( filefound ) then
-       infile2 = TRIM(ADJUSTL(infile2))//'_QU.fits'
-    else
-       INQUIRE(file=TRIM(ADJUSTL(infile2))//'_P.fits',exist=filefound)
+    if ( narg <= 2 ) then
+       infile1 = TRIM(ADJUSTL(infile1))//'_I.fits'
+       INQUIRE(file=TRIM(ADJUSTL(infile2))//'_QU.fits',exist=filefound)
        if ( filefound ) then
-          infile2 = TRIM(ADJUSTL(infile2))//'_P.fits'
+          infile2 = TRIM(ADJUSTL(infile2))//'_QU.fits'
        else
-          write(0,*) 'Polarization file not found ',infile2
+          INQUIRE(file=TRIM(ADJUSTL(infile2))//'_P.fits',exist=filefound)
+          if ( filefound ) then
+             infile2 = TRIM(ADJUSTL(infile2))//'_P.fits'
+          else
+             write(0,*) 'Polarization file not found ',infile2
+          endif
        endif
     endif
 
@@ -82,7 +85,7 @@ PROGRAM merge_maps
     if ( nmapsout > 3) stop 'More than three maps are unsupported'
     allocate( mapout(0: npix1-1, nmapsout) )
 
-    if (nmaps1 < nmaps2) then
+    if (nmaps1 <= nmaps2) then
        mapout(:,1:nmaps1) = map1
        mapout(:,nmaps1+1:nmapsout) = map2
     else
