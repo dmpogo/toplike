@@ -135,7 +135,6 @@ PROGRAM Topology_make_map
      endif
      write(0,*)'Read the noise in'
      CTpp_full = CTpp_full+map_npp
-     write(0,*) maxval(map_npp)
   endif
 
 !-------------------------------------------------------------------
@@ -152,6 +151,10 @@ PROGRAM Topology_make_map
   CALL NORMALIZE_EIGENVALUES(CTpp_norm)
   write(0,*)'Eigenvalue decomposition completed, scaled by ',CTpp_norm
 
+!  fake_file='ttt_testmap_000'
+!  call make_fake_map(map)
+!  call Write_map(map)
+
 !-------------------------------------------------------------------
 ! Optionally rotate full sky eigevectors into revised CTpp_evec
   if (do_rotate) then
@@ -165,7 +168,8 @@ PROGRAM Topology_make_map
   endif
 
 ! make map.
-  call make_fake_map(ampl,map)
+!  fake_file='ttt_testmap_turn'
+  call make_fake_map(map)
   call Write_map(map)
 
 END PROGRAM Topology_make_map
