@@ -227,10 +227,10 @@ CONTAINS
    !     1) eigenmodes of fiducial CTpp_fid on a cut sky
    ! or  2) signal to noise eigenmode for N^{-1} CTpp_fid on a cut sky
 
-   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag
+   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag, WORK1
    real(DP), dimension(:,:), allocatable :: Bweights
    real(DP), dimension(3*npix_cut)       :: WORK
-   real(DP)                              :: DDOT
+   real(DP)                              :: DDOT, norm
    integer(I4B)                          :: INFO,ip,ic,iev
 
       if ( .not.associated(CTpp_fid,FullSkyWorkSpace) ) then
@@ -260,8 +260,9 @@ CONTAINS
          call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,map_npp,npix_cut,eval,WORK,3*npix_cut,INFO)
          ! Multiply eigenvectors by B^{-1} and renormalize
          do iev=0,npix_cut-1
-           CTpp_fid(:,iev)=CTpp_fid(:,iev)/Bweights_diag
-           CTpp_fid(:,iev)=CTpp_fid(:,iev)/sqrt(DDOT(npix_cut,CTpp_fid(:,iev),1,CTpp_fid(:,iev),1))
+           WORK1 = CTpp_fid(:,iev)/Bweights_diag
+           norm  = sqrt(DDOT(npix_cut,WORK1,1,WORK1,1))
+           CTpp_fid(:,iev)=WORK1/norm
          enddo 
       else
          stop 'Unknown BASIS_TYPE'
