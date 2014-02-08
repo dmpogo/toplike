@@ -231,7 +231,7 @@ CONTAINS
     logical,     DIMENSION(:,:),     ALLOCATABLE :: bool_mask
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: clm
-    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise, WORK
+    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
     REAL(DP), DIMENSION(0:3)              :: mpoles
     
@@ -280,6 +280,7 @@ CONTAINS
        ! If noise is given as covariance, it should be in the  final
        ! working pixelization. No infrastructure noise covariance coarsening.
        call ReadCTpp(map_noise_file,exp_noise,npix_fits,nmaps)
+       exp_noise=exp_noise*(expdata_scale**2)
     ENDIF
 
     ALLOCATE(exp_mask(0:npix-1,1:nmaps))
