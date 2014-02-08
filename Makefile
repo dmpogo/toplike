@@ -41,7 +41,7 @@ FITSOUT	=
 LAPACK = -I$(MKLROOT)/include -mkl
 
 
-LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio  -lfftw3 
+LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio 
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 
