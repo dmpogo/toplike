@@ -18,10 +18,10 @@ CONTAINS
          stop 'Full sky CTpp matrix has not been set in FullSkyWorkSpace'
       endif
          
-      allocate(WORK(0:3*ntot-1))
+      allocate(WORK(0:34*ntot-1))
       if ( w8ring(1,1) == 1.d0 ) then 
          ! Trivial weights
-         call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,3*ntot,INFO)
+         call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,34*ntot,INFO)
       else   
          ! General case,  C B x = lambda x eigenproblem
          write(0,*)'Using ring weights'
@@ -30,7 +30,7 @@ CONTAINS
          forall(ip=0:ntot-1)
             Bweights(ip,ip)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
          end forall
-         call DSYGV(2,'V','L',ntot,CTpp_full,ntot,Bweights,ntot,CTpp_eval,WORK,3*ntot,INFO)
+         call DSYGV(2,'V','L',ntot,CTpp_full,ntot,Bweights,ntot,CTpp_eval,WORK,34*ntot,INFO)
          deallocate(Bweights)
       endif
 
@@ -145,11 +145,11 @@ CONTAINS
    integer(I4B)                          :: INFO, i, n_evalues_csky
 
       allocate(D(0:npix_cut-1))
-      allocate(WORK(0:5*npix_cut))
+      allocate(WORK(0:34*npix_cut))
       allocate(VT(0:npix_cut-1,0:npix_cut-1))
       allocate(U(0:npix_cut-1,0:npix_cut-1))
 
-      call DGESVD('A','A',npix_cut,npix_cut,CTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,5*npix_cut,INFO)
+      call DGESVD('A','A',npix_cut,npix_cut,CTpp,npix_cut,D,U,npix_cut,VT,npix_cut,WORK,34*npix_cut,INFO)
       if(INFO/=0) then
          write(0,*) "DGESVD info=", INFO
          stop 'Error SVD DGESVD'
@@ -227,10 +227,9 @@ CONTAINS
    !     1) eigenmodes of fiducial CTpp_fid on a cut sky
    ! or  2) signal to noise eigenmode for N^{-1} CTpp_fid on a cut sky
 
-   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag, WORK1
+   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag
    real(DP), dimension(:,:), allocatable :: Bweights
-   real(DP), dimension(3*npix_cut)       :: WORK
-   real(DP)                              :: DDOT, norm
+   real(DP), dimension(34*npix_cut)      :: WORK
    integer(I4B)                          :: INFO,ip,ic,iev
 
       if ( .not.associated(CTpp_fid,FullSkyWorkSpace) ) then
@@ -252,20 +251,33 @@ CONTAINS
          write(0,*)'weighted eigenvalue basis'
          allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
          forall (ic=0:npix_cut-1) Bweights(ic,ic)=Bweights_diag(ic)
-         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,34*npix_cut,INFO)
          deallocate(Bweights)
       else if ( BASIS_TYPE == 1 ) then
          ! Solve generalized problem CTpp*evec = eval*Npp*evec
+         ! Will fail if map_npp is not strictily positive definite
          write(0,*)'signal to noise basis'
-         call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,map_npp,npix_cut,eval,WORK,3*npix_cut,INFO)
-         ! Multiply eigenvectors by B^{-1} and renormalize
+         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
+         Bweights = map_npp
+         
+         ! Instead using DSYGV driver, make explicit steps, omitting
+         ! the last redefinition of the eigenvector x=L^T{-1} y
+         ! returned y is normalized as y^T y = 1, while x^T N x = 1
+         call DPOTRF(    'L',npix_cut,Bweights,npix_cut,INFO )
+         if ( INFO /= 0 ) stop 'map_npp is not strictly positive definite'
+         call DSYGST(  1,'L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,INFO )
+         call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,34*npix_cut,INFO )
+
+!         call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+         ! Normalize eigenvectors to x B x = I
          do iev=0,npix_cut-1
-           WORK1 = CTpp_fid(:,iev)/Bweights_diag
-           norm  = sqrt(DDOT(npix_cut,WORK1,1,WORK1,1))
-           CTpp_fid(:,iev)=WORK1/norm
-         enddo 
+            do ic = 0,npix_cut-1
+               CTpp_fid(ic,iev) = CTpp_fid(ic,iev)/sqrt(Bweights_diag(ic))
+            enddo
+         enddo
       else
-         stop 'Unknown BASIS_TYPE'
+         ! Direct, unweighted eigenvector decomposition
+         call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,3*npix_cut,INFO )
       endif
 
       ! Set nmode_cut count of eigenvalues left after the cut

@@ -220,11 +220,11 @@ MODULE Topology_Lmarg_mod
        IF (INFO/=0) THEN
           WRITE(0,'(a,i0)') 'NBad matrix ',INFO
           WRITE(0,*) "ampl_in", ampl_in
-          allocate(eigen(nmode_cut),WORK(3*nmode_cut))
+          allocate(eigen(nmode_cut),WORK(34*nmode_cut))
        ! Resets the corrupted CNTpp matrix to get the real eigen values
           CNTpp=CTpp*exp(ampl_in)
           CNTpp=CNTpp+map_npp
-          call DSYEV('V', 'L',nmode_cut,CNTpp,nmode_cut,eigen,WORK,3*nmode_cut,INFO)
+          call DSYEV('V', 'L',nmode_cut,CNTpp,nmode_cut,eigen,WORK,34*nmode_cut,INFO)
           write(0,*) eigen
           LnLikelihood = Top_bad_value
           deallocate(eigen,WORK)
