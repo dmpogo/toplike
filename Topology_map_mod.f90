@@ -371,7 +371,7 @@ CONTAINS
        ! cov matrix with no smoothing, direct masking
        i = 0
        do j=0,ntot-1
-          if ( map_mask(i) ) then
+          if ( map_mask(j) ) then
              map_npp(:,i) = pack( exp_noise(:,j), map_mask )
              i = i+1
           endif
