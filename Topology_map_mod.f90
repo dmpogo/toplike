@@ -370,6 +370,7 @@ CONTAINS
 !========= Down there needs to be worked on ====================
 !Smooth noise if needed and store it in a cut sky matrix map_npp
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
+
     IF ( (add_noise_diag .or. add_noise_cov) .and. do_Gsmooth ) THEN
        ! Should work whether exp_noise is diagonal or covariance matrix
        call getclm(clm, lcount, exp_noise, npix_fits, nmaps, lmax, w8_file=w8_file)
@@ -407,7 +408,8 @@ CONTAINS
     if ( add_noise_diag.and.(.not.do_Gsmooth) ) then
        diag_noise = diag_noise + PackMasked(exp_noise,bool_mask)
     endif
-    DEALLOCATE(exp_noise)
+
+    if ( allocated(exp_noise) ) DEALLOCATE(exp_noise)
 
     FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
 
