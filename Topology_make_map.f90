@@ -148,8 +148,10 @@ PROGRAM Topology_make_map
   write(0,*)'Eigenvalue decomposition started'
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
-  write(0,*)'Eigenvalue decomposition completed, scaled by ',CTpp_norm
+  if ( ampl == 1.0_dp ) then
+     CALL NORMALIZE_EIGENVALUES(CTpp_norm)
+     write(0,*)'Eigenvalue decomposition completed, scaled by ',CTpp_norm
+  endif
 
 !  fake_file='ttt_testmap_000'
 !  call make_fake_map(map)
