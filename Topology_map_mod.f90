@@ -235,18 +235,19 @@ CONTAINS
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
     REAL(DP), DIMENSION(0:3)              :: mpoles
     
+! Global npol=1,2 or 3 controls data used (I, QU, or IQU) 
 ! Input must be full-sky in globally accessible files 
-! with either 1 (T-only) or 3 maps. Other formats must be converted into this
+! Signal - single file with either 1 (T-only), 2 (QU-only) or 3 (IQU) maps.
+! Other formats must be converted into this
     npix=getsize_fits(map_signal_file,nmaps=nmaps,ordering=ordering,polarisation=ifpol)
     if (nmaps < npol) then
        write(0,*)'nmaps=',nmaps,' < npol=',npol
        stop 'Not enough maps to do what requested'
     endif
-    if (ifpol == 1 .and. nmaps /= 3) stop 'For polarization need 3 maps in the input'
+    if (ifpol == 1 .and. nmaps < 2) stop 'For polarization need at least 2 maps in the input'
     if (nmaps == 2) stop '2 map (polarization only) format is not yet supported'
-    if (ifpol == 0) then 
-       write(0,*)'Polarization is explicitly unset, using only first map as I'
-       npol=1
+    if (ifpol == 0 .and. npol > 1) then 
+       stop 'Polarization is explicitly unset, check data files'
     endif
 
     npix_fits=nside2npix(nside)
@@ -296,12 +297,14 @@ CONTAINS
        exp_mask = 1
     ENDIF
 
-    if ( npol == 1 ) then  ! Use npol to short out I or QU via mask
-       exp_mask(:,2:3) = 0.0_dp
-    else if ( npol == 2 ) then
+! if npol < nmaps, use mask to short out unused data
+    if ( npol == 1 .and. nmaps > 1) then  ! I only
+       exp_mask(:,2:nmaps) = 0.0_dp
+       npol = 3 
+    else if ( npol == 2 ) then ! QU only can only be done by masking 
        exp_mask(:,1) = 0.0_dp
+       npol = 3 
     endif
-    npol = 3               ! Everything is in the mask now
 
 ! Check ordering, CTpp is probably given in RING (to do: auto-synchronized)
     if ( ordering == 0 ) then
@@ -323,23 +326,23 @@ CONTAINS
        if ( add_noise_diag ) call convert_nest2ring(nside,exp_noise)
     endif
 
-! Data in, store it in the linear arrays for analysis
-
+! Convert coarse grained mask to  boolean
     ALLOCATE(bool_mask(0:npix_fits-1,1:nmaps))
     bool_mask = .false.
     ! This threshold interplace with one in REBIN, if mask is not scaled to 0-1
     ! It was introduced to work agains smoothing of masked map issues
     ! to mask edge pixels - that's why a bit over 50% is a good criterium
-    if (npol /= 2) then 
-       bool_mask(:,1) = ( exp_mask(:,1) >= 0.6_dp )  ! I
+    ! Allow for different criterium for I and QU
+    if (nmaps /= 2) then   ! I
+       bool_mask(:,1) = ( exp_mask(:,1) >= 0.6_dp )  
     endif
 
-    if (npol /= 1) then
-       bool_mask(:,2:3) = ( exp_mask(:,2:3) >= 0.6_dp ) !QU
+    if (nmaps /= 1) then   ! QU
+       bool_mask(:,nmaps-1:nmaps) = ( exp_mask(:,nmaps-1:nmaps) >= 0.6_dp )
     endif
     DEALLOCATE(exp_mask)
 
-    ! Set ntot, and convert mask to linear array
+! Data in, set ntot and store it in the linear arrays for analysis
     ntot = npix_fits*nmaps
 
     allocate(map_mask(0:ntot-1))
@@ -349,8 +352,6 @@ CONTAINS
     npix_cut = count(bool_mask)
     write(0,'(a,i7,a,i7)') 'Found ',npix_cut,' unmasked pixels from ',ntot
     if (npix_cut == 0) STOP 'All pixels are masked'
-    npix_cut_I  = count(bool_mask(:,1))
-    npix_cut_QU = npix_cut-npix_cut_I
   
 ! Smooth (in lm space) and pack signal
 
