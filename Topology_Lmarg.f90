@@ -285,6 +285,7 @@ PROGRAM Topology_Lmarg
   CTpp_full => FullSkyWorkSpace
 
   CALL smooth_ctpp_lm(CTpp_full,npix_fits,npol,lmax,window=Wl)
+  CALL normalize_ctpp(CTpp_norm)
 
 !-------------------------------------------------------------------
 ! Allocate main data blocks
@@ -303,7 +304,7 @@ PROGRAM Topology_Lmarg
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()
   CALL SORT_AND_LIMIT_EIGENVALUES()
-  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
+!  CALL NORMALIZE_EIGENVALUES(CTpp_norm)
 ! Decompose CTpp_evec into multipoles, stored in CTpp_cplm
   allocate(CTpp_cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,npol,lmax,w8ring)
@@ -369,5 +370,34 @@ PROGRAM Topology_Lmarg
      WRITE(103,'(a, 1pd15.7)') ' CTpp  norm   : ', CTpp_norm
      close(103)
   endif
+
+CONTAINS
+
+  subroutine normalize_ctpp(ctppnorm_out)
+  real(DP), intent(out), optional  :: ctppnorm_out
+
+  integer(I4B)            :: i, l, lmcount
+  real(DP)                :: flatnorm, ctppnorm
+
+  ! Normalize to power over l=2,lnorm being equal to that with flat curlCl
+  ! Cl = 2pi/(l*(l+1)) curlCl,   4pi/Npix sum_p Cpp = \sum_l (2l+1) Cl
+
+  flatnorm=0.0_dp
+  do l=2,lnorm
+     flatnorm = flatnorm + (l+0.5_dp)/((l+1.0_dp)*l)*Wl(l,1)**2
+  enddo
+  flatnorm = flatnorm*curlCl_in_mK
+
+  do i=1,npix_fits
+     ctppnorm = ctppnorm + CTpp_full(i,i)
+  enddo
+  
+  ctppnorm=flatnorm*npix_fits/ctppnorm
+  CTpp_full = CTpp_full*ctppnorm
+
+  write(0,*)'Normalized over l=',lnorm,'to curlCl(mK)=',curlCl_in_mK
+
+  if (present(ctppnorm_out)) ctppnorm_out=ctppnorm
+  end subroutine normalize_ctpp
 
 END PROGRAM Topology_Lmarg
