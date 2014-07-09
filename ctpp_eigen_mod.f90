@@ -230,10 +230,28 @@ CONTAINS
    real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag
    real(DP), dimension(:,:), allocatable :: Bweights
    real(DP), dimension(34*npix_cut)      :: WORK
+   real(DP)                              :: scaleI,scaleP
    integer(I4B)                          :: INFO,ip,ic,iev
 
       if ( .not.associated(CTpp_fid,FullSkyWorkSpace) ) then
          stop 'CTpp_fid has not been set in FullSkyWorkSpace'
+      endif
+
+      ! Possibly scale polarization part to have same power as temperature
+      if ( BASIS_TYPE < 0 ) then
+         write(0,*)'Scaling polarization to temperature power for mode basis'
+         scaleI = 0.0_dp
+         scaleP = 0.0_dp
+         do ip=0,npix_fits-1
+            scaleI=scaleI+CTpp_fid(ip,ip)
+            scaleP=scaleP+CTpp_fid(npix_fits+ip,npix_fits+ip)+CTpp_fid(2*npix_fits+ip,2*npix_fits+ip)
+         enddo
+         scaleP=sqrt(scaleI/scaleP)
+         write(0,*)'Scale factor=',scaleP
+         do ip=npix_fits,ntot-1
+            CTpp_fid(:,ip) = CTpp_fid(:,ip)*scaleP
+            CTpp_fid(ip,:) = CTpp_fid(ip,:)*scaleP
+         enddo
       endif
 
       ! Compactify CTpp_fid and Bweights to cut sky
@@ -246,14 +264,7 @@ CONTAINS
          endif
       enddo
 
-      if ( BASIS_TYPE == 2 ) then
-         ! Solve generalized problem CTpp*B*evec = eval*evec
-         write(0,*)'weighted eigenvalue basis'
-         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
-         forall (ic=0:npix_cut-1) Bweights(ic,ic)=Bweights_diag(ic)
-         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,34*npix_cut,INFO)
-         deallocate(Bweights)
-      else if ( BASIS_TYPE == 1 ) then
+      if ( BASIS_TYPE == 0 ) then
          ! Solve generalized problem CTpp*evec = eval*Npp*evec
          ! Will fail if map_npp is not strictily positive definite
          write(0,*)'signal to noise basis'
@@ -275,13 +286,22 @@ CONTAINS
                CTpp_fid(ic,iev) = CTpp_fid(ic,iev)/sqrt(Bweights_diag(ic))
             enddo
          enddo
+      else if ( ABS(BASIS_TYPE) == 1 ) then
+         ! Solve generalized problem CTpp*B*evec = eval*evec
+         write(0,*)'weighted eigenvalue basis'
+         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
+         forall (ic=0:npix_cut-1) Bweights(ic,ic)=Bweights_diag(ic)
+         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,34*npix_cut,INFO)
+         deallocate(Bweights)
       else
          ! Direct, unweighted eigenvector decomposition
+         write(0,*)'unweighted eigenvalue basis'
          call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,3*npix_cut,INFO )
       endif
 
       ! Set nmode_cut count of eigenvalues left after the cut
       call SET_N_EVALUES(eval,evalue_cut_csky,nmode_cut)
+      write(0,*) 'selected number of modes=',nmode_cut
 
       ! Reorder the sorting to decreasing and store eigenvectors
       if (allocated(VM)) deallocate(VM)

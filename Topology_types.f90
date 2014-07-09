@@ -14,9 +14,9 @@ MODULE TOPOLOGY_TYPES
 ! ====================================================
 ! Control
 
-! Eigenmode basis type:   1 - S/N, 2 - C Bweight
+! Eigenmode basis type:   0 - S/N, 1 - C Bweight, negative - scaled P
 
-  INTEGER(I1B), PARAMETER :: BASIS_TYPE = 2
+  INTEGER(I1B), PARAMETER :: BASIS_TYPE = -1
 
 ! Eigenmode cut strategy, for cut sky basis and full sky CTpp_full
   INTEGER(I1B), PARAMETER :: S_NONE=0, S_LCUT=1, S_NCUT=2, S_CONDITIONING=3
