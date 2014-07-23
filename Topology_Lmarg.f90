@@ -396,6 +396,7 @@ CONTAINS
   CTpp_full = CTpp_full*ctppnorm
 
   write(0,*)'Normalized over l=',lnorm,'to curlCl(mK)=',curlCl_in_mK
+  write(0,*)'Normalization factors, flatnorm=',flatnorm,'ctppnorm=',ctppnorm
 
   if (present(ctppnorm_out)) ctppnorm_out=ctppnorm
   end subroutine normalize_ctpp

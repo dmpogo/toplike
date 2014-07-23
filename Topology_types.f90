@@ -41,7 +41,7 @@ MODULE TOPOLOGY_TYPES
 
 ! ====================================================
 ! CTpp normalization
-  integer(I4B)  :: lnorm=10
+  integer(I4B)  :: lnorm=64
   real(DP)      :: curlCl_in_mK = 1.d-2  ! 10x real to have ampl~-2
 !  real(DP)      :: curlCl_in_mK = 1.d-3  !  temporary for maps
 
