@@ -184,7 +184,7 @@ MODULE Topology_Lmarg_mod
      real(DP)             :: ax,bx,cx,fa,fb,fc,relerr
 
        ax=ampl_best       !Input value of ampl_best is used as initial guess
-       bx=ax-2.0d0
+       bx=ax-0.5d0
        write(0,*)'Start bracketing Min'
        CALL mnbrak(ax,bx,cx,fa,fb,fc,LnLikelihood)
        write(0,*)'Bracketing:',bx,ax,cx,fb,fa,fc
