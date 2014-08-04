@@ -79,7 +79,6 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
   CHARACTER(len=255)  :: w8_file, beam_file
   CHARACTER(len=255)  :: infile, fidfile
-  CHARACTER(len=255)  :: fake_file
 
 ! ====================================================
 ! Global numerical variables

@@ -16,6 +16,7 @@ PROGRAM Topology_make_map
 
   real(DP)     :: ampl, ang(3), CTpp_norm
   real(DP),    allocatable, dimension(:,:)   :: map
+  character(255)                             :: fake_file
 
 !------------------------------------------------------------------------
 !  Input Parameters
@@ -153,9 +154,8 @@ PROGRAM Topology_make_map
      write(0,*)'Eigenvalue decomposition completed, scaled by ',CTpp_norm
   endif
 
-!  fake_file='ttt_testmap_000'
 !  call make_fake_map(map)
-!  call Write_map(map)
+!  call Write_map(map,'ttt_testmap_600')
 
 !-------------------------------------------------------------------
 ! Optionally rotate full sky eigevectors into revised CTpp_evec
@@ -170,8 +170,7 @@ PROGRAM Topology_make_map
   endif
 
 ! make map.
-!  fake_file='ttt_testmap_turn'
   call make_fake_map(map)
-  call Write_map(map)
+  call Write_map(map,fake_file)
 
 END PROGRAM Topology_make_map

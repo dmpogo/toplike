@@ -54,8 +54,9 @@ CONTAINS
     return
   END SUBROUTINE make_fake_map
 
-  SUBROUTINE Write_map(heal_map)
+  SUBROUTINE Write_map(heal_map,map_file)
     REAL(DP), INTENT(IN), DIMENSION(:,:)   :: heal_map
+    CHARACTER(*), INTENT(IN)               :: map_file
     !-----------------------------------------------------------------------
     !                        generates header
     !-----------------------------------------------------------------------
@@ -73,15 +74,15 @@ CONTAINS
 
     CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax,polar=polarization,fwhm_degree=beam_fwhm)
 
-    INQUIRE(file=TRIM(ADJUSTL(fake_file)),exist=filefound)
+    INQUIRE(file=TRIM(ADJUSTL(map_file)),exist=filefound)
     IF(filefound) THEN
-       open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted')
+       open(26,file=TRIM(ADJUSTL(map_file)),form='unformatted')
        close(26,status='delete')
        write(0,*) 'Overwriting existing fits file'
     ELSE
-       open(26,file=TRIM(ADJUSTL(fake_file)),form='unformatted',status='new',iostat=iostatus)
+       open(26,file=TRIM(ADJUSTL(map_file)),form='unformatted',status='new',iostat=iostatus)
        IF ( iostatus > 0 ) THEN
-          write(0,*) 'Unable to open output ',TRIM(ADJUSTL(fake_file))
+          write(0,*) 'Unable to open output ',TRIM(ADJUSTL(map_file))
           stop
        ELSE
           close(26,status='delete')
@@ -90,7 +91,7 @@ CONTAINS
     
     write(0,*)'Writing bintab'
     write(0,*)size(heal_map,1),size(heal_map,2),npix_loc,nmap_loc,nlheader
-    CALL write_bintab(heal_map, npix_loc, nmap_loc, header, nlheader,TRIM(ADJUSTL(fake_file)))
+    CALL write_bintab(heal_map, npix_loc, nmap_loc, header, nlheader,TRIM(ADJUSTL(map_file)))
     write(0,*)'Done'
 
     RETURN
@@ -391,9 +392,8 @@ CONTAINS
        map_npp=0.0_dp
     ENDIF
 
-!    fake_file='ppp_smica_0.1_0.6'
 !    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
-!    call Write_map(exp_data)
+!    call Write_map(exp_data,'ppp_smica_0.1_0.6')
 !    DEALLOCATE(exp_data)
 !    stop
 
@@ -482,15 +482,12 @@ CONTAINS
 
     if ( DEBUG .and. STORE_REBINNED_MAPS ) then
        write(0,*)'Rebinned maps stored in default localtion'
-       fake_file='rebinned_cmb.fits'
-       call Write_map(exp_data)
+       call Write_map(exp_data,'rebinned_cmb_fits')
        if ( add_noise_diag ) then
-          fake_file='rebinned_noise.fits'
-          call Write_map(exp_noise)
+          call Write_map(exp_noise,'rebinned_noise.fits')
        endif
        if ( do_mask ) then
-          fake_file='rebinned_mask.fits'
-          call Write_map(exp_mask)
+          call Write_map(exp_mask,'rebinned_mask_fits')
           write(0,*)count(exp_mask > good_fraction),' good pixels'
        endif
        if ( STOP_AFTER_STORING_REBINNED_MAPS ) stop
