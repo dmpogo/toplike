@@ -64,7 +64,7 @@ MODULE TOPOLOGY_TYPES
 
   ! Persistent are full-sky CTpp_eval and CTpp_cplm
   ! Intermittent are nmode size CTpp, CNTpp
-  REAL(DP),    DIMENSION(:,:),   ALLOCATABLE   :: CTpp, CNTpp
+  REAL(DP),    DIMENSION(:,:),   ALLOCATABLE   :: CTpp, CNTpp, CNpp
   REAL(DP),    DIMENSION(:),     ALLOCATABLE   :: CTpp_eval
   COMPLEX(DP), DIMENSION(:,:,:), ALLOCATABLE   :: CTpp_cplm
 

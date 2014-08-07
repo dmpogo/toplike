@@ -271,10 +271,10 @@ PROGRAM Topology_Lmarg
   write(0,*)'Basis modes defined'
 
 !-------------------------------------------------------------------
-! Expand the data in the basis
+! Expand the data in the basis. Deallocates map_npp and creates CNpp
 
   CALL PROJECT_VECTOR_ONTO_BASIS_MODES(map_signal)
-  CALL PROJECT_MATRIX_ONTO_BASIS_MODES(map_npp)
+  CALL PROJECT_NOISE_ONTO_BASIS_MODES()
 
   write(0,*)'Data and Noise projected onto basis modes'
 

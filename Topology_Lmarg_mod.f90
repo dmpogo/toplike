@@ -211,9 +211,8 @@ MODULE Topology_Lmarg_mod
      REAL(DP), allocatable, dimension(:) :: eigen,WORK
      
 !   scale CTpp and add noise.
-!   Caution - only 'L' triangular part in map_npp and thus CNTpp is valid
        CNTpp=CTpp*exp(ampl_in)
-       CNTpp=CNTpp+map_npp
+       CNTpp=CNTpp+CNpp
 
        INFO = 0
        CALL DPOTRF( 'L', nmode_cut, CNTpp, nmode_cut, INFO )
@@ -223,7 +222,7 @@ MODULE Topology_Lmarg_mod
           allocate(eigen(nmode_cut),WORK(34*nmode_cut))
        ! Resets the corrupted CNTpp matrix to get the real eigen values
           CNTpp=CTpp*exp(ampl_in)
-          CNTpp=CNTpp+map_npp
+          CNTpp=CNTpp+CNpp
           call DSYEV('V', 'L',nmode_cut,CNTpp,nmode_cut,eigen,WORK,34*nmode_cut,INFO)
           write(0,*) eigen
           LnLikelihood = Top_bad_value

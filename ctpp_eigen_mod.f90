@@ -312,19 +312,23 @@ CONTAINS
       return
    end subroutine SET_BASIS_MODES
 
-   subroutine PROJECT_MATRIX_ONTO_BASIS_MODES(mat)
-   ! Projects matrix onto a set of globally saved basis modes
-   real(DP), intent(inout), dimension(:,:) :: mat
-   
-   real(DP), allocatable, dimension(:,:)   :: mat_temp
+   subroutine PROJECT_NOISE_ONTO_BASIS_MODES()
+   ! Projects noise data onto a set of globally saved basis modes and sets CNpp
 
-      allocate(mat_temp(npix_cut,nmode_cut))
-      call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,mat,npix_cut,VM,npix_cut,0.0_dp,mat_temp,npix_cut)
-      call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,VM,npix_cut,mat_temp,npix_cut,0.0_dp,mat,npix_cut)
-      deallocate(mat_temp)
+   real(DP), allocatable, dimension(:,:)   :: mt
+
+      allocate(mt(npix_cut,nmode_cut))
+      call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,VM,npix_cut,0.0_dp,mt,npix_cut)
+
+      deallocate(map_npp)
+      if ( allocated(CNpp) ) deallocate( CNpp )
+      allocate( CNpp(0:nmode_cut-1,0:nmode_cut-1) )
+
+      call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,VM,npix_cut,mt,npix_cut,0.0_dp,CNpp,nmode_cut)
+      deallocate(mt)
 
       return
-   end subroutine PROJECT_MATRIX_ONTO_BASIS_MODES
+   end subroutine PROJECT_NOISE_ONTO_BASIS_MODES
 
    subroutine PROJECT_VECTOR_ONTO_BASIS_MODES(vec)
    ! Projects vector onto a set of globally saved basis modes
