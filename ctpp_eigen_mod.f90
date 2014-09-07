@@ -10,28 +10,36 @@ CONTAINS
    ! Full sky CTpp stored in CTpp_evec(ntot,ntot) -> 
    !        eigenfunctions in CTpp_evec + eigenvalues in CTpp_eval
 
-   integer(I4B)                          :: INFO,ip
-   real(DP), allocatable, dimension(:)   :: WORK
-   real(DP), allocatable, dimension(:,:) :: Bweights
+   integer(I4B)                       :: INFO,ip
+   real(DP),    dimension(34*ntot)    :: WORK
+   real(DP),    dimension(0:ntot-1)   :: Bweights
 
       if ( .not.associated(CTpp_full,FullSkyWorkSpace) ) then
          stop 'Full sky CTpp matrix has not been set in FullSkyWorkSpace'
       endif
          
-      allocate(WORK(0:34*ntot-1))
       if ( w8ring(1,1) == 1.d0 ) then 
          ! Trivial weights
          call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,34*ntot,INFO)
       else   
          ! General case,  C B x = lambda x eigenproblem
+         ! We cast it as  B^1/2 C B^1/2 B^1/2 x = lambda B^1/2 x
          write(0,*)'Using ring weights'
-         allocate( Bweights(0:ntot-1, 0:ntot-1) )
-         Bweights=0.0_dp
-         forall(ip=0:ntot-1)
-            Bweights(ip,ip)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
-         end forall
-         call DSYGV(2,'V','L',ntot,CTpp_full,ntot,Bweights,ntot,CTpp_eval,WORK,34*ntot,INFO)
-         deallocate(Bweights)
+
+         ! C -> B^1/2 C B^1/2
+         do ip=0,ntot-1
+            Bweights(ip)=sqrt(w8pix(mod(ip,npix_fits),ip/npix_fits+1))
+            CTpp_full(:,ip) = CTpp_full(:,ip)*Bweights(ip)
+            CTpp_full(ip,:) = CTpp_full(ip,:)*Bweights(ip)
+         enddo
+
+         ! C y_i = lambda y_i
+         call DSYEV('V','L',ntot,CTpp_full,ntot,CTpp_eval,WORK,34*ntot,INFO)
+
+         ! x_i = B^(-1/2) y_i
+         do ip=0,ntot-1
+            CTpp_full(ip,:) = CTpp_full(ip,:)/Bweights(ip)
+         enddo
       endif
 
       if ( INFO /= 0 ) stop 'CTpp eigenvalue decomposition failed, terminating'
@@ -227,8 +235,7 @@ CONTAINS
    !     1) eigenmodes of fiducial CTpp_fid on a cut sky
    ! or  2) signal to noise eigenmode for N^{-1} CTpp_fid on a cut sky
 
-   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights_diag
-   real(DP), dimension(:,:), allocatable :: Bweights
+   real(DP), dimension(0:npix_cut-1)     :: eval, Bweights
    real(DP), dimension(34*npix_cut)      :: WORK
    real(DP)                              :: scaleI,scaleP
    integer(I4B)                          :: INFO,ip,ic,iev
@@ -259,7 +266,7 @@ CONTAINS
       do ip=0,ntot-1
          if (map_mask(ip)) then
             CTpp_fid(0:npix_cut-1,ic)=pack(CTpp_fid(:,ip),map_mask)
-            Bweights_diag(ic)=w8pix(mod(ip,npix_fits),ip/npix_fits+1)
+            Bweights(ic)=sqrt(w8pix(mod(ip,npix_fits),ip/npix_fits+1))
             ic=ic+1
          endif
       enddo
@@ -268,35 +275,44 @@ CONTAINS
          ! Solve generalized problem CTpp*evec = eval*Npp*evec
          ! Will fail if map_npp is not strictily positive definite
          write(0,*)'signal to noise basis'
-         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
-         Bweights = map_npp
          
          ! Instead using DSYGV driver, make explicit steps, omitting
          ! the last redefinition of the eigenvector x=L^T{-1} y
          ! returned y is normalized as y^T y = 1, while x^T N x = 1
-         call DPOTRF(    'L',npix_cut,Bweights,npix_cut,INFO )
+         call DPOTRF(    'L',npix_cut,map_npp,npix_cut,INFO )
          if ( INFO /= 0 ) stop 'map_npp is not strictly positive definite'
-         call DSYGST(  1,'L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,INFO )
+         call DSYGST(  1,'L',npix_cut,CTpp_fid,ntot,map_npp,npix_cut,INFO )
          call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,34*npix_cut,INFO )
 
-!         call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,3*npix_cut,INFO)
+!        call DSYGV(1,'V','L',npix_cut,CTpp_fid,ntot,map_npp,npix_cut,eval,WORK,3*npix_cut,INFO)
          ! Normalize eigenvectors to x B x = I
          do iev=0,npix_cut-1
             do ic = 0,npix_cut-1
-               CTpp_fid(ic,iev) = CTpp_fid(ic,iev)/sqrt(Bweights_diag(ic))
+               CTpp_fid(ic,iev) = CTpp_fid(ic,iev)/Bweights(ic)
             enddo
          enddo
       else if ( ABS(BASIS_TYPE) == 1 ) then
          ! Solve generalized problem CTpp*B*evec = eval*evec
+         ! Cast is as B^1/2 C B^1/2 B^1/2 evec = eval*B^1/2 evec
          write(0,*)'weighted eigenvalue basis'
-         allocate ( Bweights(0:npix_cut-1, 0:npix_cut-1) )
-         forall (ic=0:npix_cut-1) Bweights(ic,ic)=Bweights_diag(ic)
-         call DSYGV(2,'V','L',npix_cut,CTpp_fid,ntot,Bweights,npix_cut,eval,WORK,34*npix_cut,INFO)
-         deallocate(Bweights)
+
+         ! C_hat -> B^1/2 C B^1/2
+         do ic=0,npix_cut-1
+            CTpp_fid(:,ic) = CTpp_fid(:,ic)*Bweights(ic)
+            CTpp_fid(ic,:) = CTpp_fid(ic,:)*Bweights(ic)
+         enddo
+
+         ! C_hat y_i = lambda y_i
+         call DSYEV('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,34*npix_cut,INFO)
+
+         ! y_i(:) = CTpp_fid(:,i), x_i = B^(-1/2) y_i
+         do ic=0,npix_cut-1
+            CTpp_fid(ic,:) = CTpp_fid(ic,:)/Bweights(ic)
+         enddo
       else
          ! Direct, unweighted eigenvector decomposition
          write(0,*)'unweighted eigenvalue basis'
-         call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,3*npix_cut,INFO )
+         call DSYEV ('V','L',npix_cut,CTpp_fid,ntot,eval,WORK,34*npix_cut,INFO )
       endif
 
       ! Set nmode_cut count of eigenvalues left after the cut
@@ -318,13 +334,22 @@ CONTAINS
    real(DP), allocatable, dimension(:,:)   :: mt
 
       allocate(mt(npix_cut,nmode_cut))
-      call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,VM,npix_cut,0.0_dp,mt,npix_cut)
-
+      if ( BASIS_TYPE == 0 ) then     ! map_npp is in lower Cholesky form, do (VM^T L)(L^T VM)
+         mt = VM
+         call DTRMM('L','L','T','N',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,mt,npix_cut)
+      else                            ! map_npp is full, do VM^T map_npp VM
+         call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,VM,npix_cut,0.0_dp,mt,npix_cut)
+      endif
       deallocate(map_npp)
+
       if ( allocated(CNpp) ) deallocate( CNpp )
       allocate( CNpp(0:nmode_cut-1,0:nmode_cut-1) )
 
-      call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,VM,npix_cut,mt,npix_cut,0.0_dp,CNpp,nmode_cut)
+      if ( BASIS_TYPE == 0 ) then
+         call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,mt,npix_cut,mt,npix_cut,0.0_dp,CNpp,nmode_cut)
+      else
+         call DGEMM('T','N',nmode_cut,nmode_cut,npix_cut,1.0_dp,VM,npix_cut,mt,npix_cut,0.0_dp,CNpp,nmode_cut)
+      endif
       deallocate(mt)
 
       return
