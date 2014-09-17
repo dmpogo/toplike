@@ -54,7 +54,7 @@ contains
     REAL(DP),    intent(in) :: a, b, g
     LOGICAL,     intent(in) :: redo_dlmm
     
-    INTEGER                                         :: npix,l,m,mp,p,iev,indl
+    INTEGER                                         :: npix,l,m,mp,p,iev,indl,indlc
     REAL(DP),    DIMENSION(0:12*nside**2-1, 1:npol) :: map
     COMPLEX(DP), DIMENSION(1:npol, 0:lmax, 0:lmax)  :: alm
     COMPLEX(DP), DIMENSION(0: lmax)                 :: ea,eg
@@ -93,13 +93,14 @@ contains
        alm = DCMPLX(0.d0, 0.d0)
        DO l = 0, lmax
           indl = l**2 + l
+          indlc = indl/2   ! compact storage
           DO m = 0, l
-             alm(:, l, m) = ea(m) * dlmm(indl + m, indl) * cplm(:, indl, iev)  ! mp=0
+             alm(:, l, m) = ea(m) * dlmm(indl + m, indl) * cplm(:, indlc, iev)  ! mp=0
              sgn = -1.d0
              DO mp = 1, l
                 alm(:, l, m) = alm(:, l, m) + ea(m) * &
-                     (dlmm(indl+m,indl+mp)*cplm(:,indl+mp,iev)*eg(mp) + &
-                     sgn*dlmm(indl+m,indl-mp)*CONJG(cplm(:,indl+mp,iev)*eg(mp)))
+                     (dlmm(indl+m,indl+mp)*cplm(:,indlc+mp,iev)*eg(mp) + &
+                     sgn*dlmm(indl+m,indl-mp)*CONJG(cplm(:,indlc+mp,iev)*eg(mp)))
                 sgn = -sgn
              ENDDO
           ENDDO
@@ -151,7 +152,8 @@ contains
       lmin = 0
     END IF
 
-    if (.not.allocated(cplm) ) allocate( cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1) )
+!    if (.not.allocated(cplm) ) allocate( cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1) )
+    if (.not.allocated(cplm) ) allocate( cplm(1:npol,0:(lmax*(lmax+3))/2,0:n_evalues-1) )
     cplm = DCMPLX(0.d0,0.d0)
    
     ! Precompute plm's   (should check if it is faster)
@@ -184,7 +186,7 @@ contains
        endif
 
        DO l = lmin, lmax
-          indl = l**2 + l
+          indl = (l**2 + l)/2
           DO m = 0, l
              cplm(:, indl+m, iev) =  alm(:, l, m)
           ENDDO
@@ -197,7 +199,7 @@ contains
     RETURN
   END SUBROUTINE getcplm
 
-  SUBROUTINE smooth_ctpp(ctpp, nside, n_evalues, lmax, w8ring, kernel, cut_md)
+  SUBROUTINE smooth_ctevec(ctpp, nside, n_evalues, lmax, w8ring, kernel, cut_md)
     ! Smoothing of the eigenvectors. This routine needs a thought
     IMPLICIT NONE
     
@@ -242,7 +244,7 @@ contains
     ENDDO
 
     RETURN
-  END SUBROUTINE smooth_ctpp
+  END SUBROUTINE smooth_ctevec
     
   SUBROUTINE add2inverse(mat,sigma,n)
     !=================================================================
