@@ -22,7 +22,7 @@ PROGRAM Topology_Lmarg
   !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
   integer(I4B)                          :: iter, niter, seed_size
-  CHARACTER(LEN=255) :: nice_out_file, inputline
+  CHARACTER(LEN=255) :: nice_out_file, inputang
 
 !------------------------------------------------------------------------
 !  Input Parameters for likelihood run
@@ -59,8 +59,7 @@ PROGRAM Topology_Lmarg
   read(*,*) lmax
 
   read(*,*) do_rotate
-  read(*,'(a)') inputline
-  write(0,*) inputline
+  read(*,'(a)') inputang
   read(*,*) find_best_angles
   read(*,*) niter
   read(*,*) iseed
@@ -81,7 +80,8 @@ PROGRAM Topology_Lmarg
   ENDIF
 
   INQUIRE(file=TRIM(map_signal_file),exist=found)
-  WRITE(0,*) 'Signal file', TRIM(map_signal_file)
+  WRITE(0,*) 'Signal:'
+  WRITE(0,'(5x,255a)') TRIM(ADJUSTL(map_signal_file))
   IF (.NOT.found) THEN
      WRITE(0,*) 'Can not find file', TRIM(map_signal_file)
      STOP "No signal file"
@@ -93,7 +93,8 @@ PROGRAM Topology_Lmarg
 
   INQUIRE(file=TRIM(fidfile),exist=found)
   IF (found) THEN
-     WRITE(0,*) 'fiducial CTpp:', TRIM(fidfile)
+     WRITE(0,*) 'fiducial CTpp:'
+     WRITE(0,'(5x,255a)') TRIM(ADJUSTL(fidfile))
   ELSE
      WRITE(0,*) 'Can not find file', TRIM(fidfile)
      STOP "No fiducial CTpp file"
@@ -101,7 +102,8 @@ PROGRAM Topology_Lmarg
 
   INQUIRE(file=TRIM(infile),exist=found)
   IF (found) THEN
-     WRITE(0,*) 'CTpp:', TRIM(infile)
+     WRITE(0,*) 'CTpp:'
+     WRITE(0,'(5x,255a)') TRIM(ADJUSTL(infile))
   ELSE
      WRITE(0,*) 'Can not find file', TRIM(infile)
      STOP "No CTpp file"
@@ -160,6 +162,25 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Using regularization option, epsil =', epsil
   ENDIF
 
+  IF (do_rotate) THEN
+     if ( index(inputang,'random') /= 0 ) then
+        random_angles=.true.
+        ang=(/0.0_dp,0.0_dp,0.0_dp/)
+        WRITE(0,*)'Rotating to random angles'
+     else
+        random_angles=.false.
+        read(inputang,*) ang
+        WRITE(0,'(1x,"Rotating to:",3(1x,d12.4))') ang
+     endif 
+
+     if (find_best_angles) then
+        WRITE(0,*)'find_best_angles :', find_best_angles
+     endif
+     WRITE(0,*)'lmax :', lmax
+  ELSE
+     WRITE(0,*)'No rotation'
+  ENDIF
+
   IF (do_nice_out_file) THEN
      WRITE(0,*) 'Using nice out file'
   ELSE
@@ -213,18 +234,15 @@ PROGRAM Topology_Lmarg
     ENDIF
 
     IF(do_rotate) THEN
-       WRITE(103,'(1Xa,1XL1)')'do_rotate :', do_rotate
+
+       if ( index(inputang,'random') /= 0 ) then
+          WRITE(103,'(1Xa)')'Rotating to random angles'
+       else
+          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+       endif 
+
        IF(find_best_angles) THEN
           WRITE(103,'(1Xa,1XL1)')'find_best_angles :', find_best_angles
-       ELSE
-          if ( index(inputline,'random') /= 0 ) then
-             random_angles=.true.
-             WRITE(103,'(1Xa)')'Rotating to random angles'
-          else
-             random_angles=.false.
-             read(inputline,*)ang
-             WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
-          endif 
        ENDIF
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
@@ -237,15 +255,15 @@ PROGRAM Topology_Lmarg
 
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
-  allocate ( Wl(0:lmax,1:npol) )
+  allocate ( Wl(0:lmax,1:3) )
   if (do_Gsmooth) then
      CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
   else
      CALL collect_beams(Wl,lmax,reset=.true.)
   endif
   CALL ReadExpData(TRIM(ADJUSTL(expdata_format)))
-  write(0,*)'Read the data in'
-
+  write(0,*)'Read the data in ===================================='
+ 
 !-------------------------------------------------------------------
 ! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
   if (do_expsmooth) then
@@ -268,7 +286,7 @@ PROGRAM Topology_Lmarg
   CALL smooth_ctpp_lm(CTpp_fid,npix_fits,npol,lmax,window=Wl)
   CALL SET_BASIS_MODES()
  
-  write(0,*)'Basis modes defined'
+  write(0,*)'Basis modes defined =================================='
 
 !-------------------------------------------------------------------
 ! Expand the data in the basis. Deallocates map_npp and creates CNpp
@@ -276,7 +294,7 @@ PROGRAM Topology_Lmarg
   CALL PROJECT_VECTOR_ONTO_BASIS_MODES(map_signal)
   CALL PROJECT_NOISE_ONTO_BASIS_MODES()
 
-  write(0,*)'Data and Noise projected onto basis modes'
+  write(0,*)'Data and Noise projected onto basis modes ============'
 
 !-------------------------------------------------------------------
 ! Read full sky CTpp in
@@ -309,16 +327,17 @@ PROGRAM Topology_Lmarg
   allocate(CTpp_cplm(1:npol,0:lmax*(lmax+2),0:n_evalues-1))
   CALL GETCPLM(CTpp_cplm,CTpp_evec,nside,n_evalues,npol,lmax,w8ring)
 
-  write(0,*) 'Preparation of CTpp completed'
+  write(0,*) 'Preparation of CTpp completed ======================='
 !-------------------------------------------------------------------
 ! Main calls to determine best fit parameters
   do iter=1,niter
 
   if (do_rotate) then
+     write(0,*) 'Starting angles ', TRIM(inputang)
      if (find_best_angles) then
-        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
+        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max,random_angles)
      else
-        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom=.true.)
+        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,random_angles)
      endif
   else
      CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)

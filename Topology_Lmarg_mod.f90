@@ -20,8 +20,10 @@ MODULE Topology_Lmarg_mod
 ! All of them set CTpp and CNTpp=(CTpp+N)^-1 as byproduct
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-     SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max)
-     real(DP), intent(out) :: ampl_best,ang(3),LnL_max
+     SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom)
+     real(DP), intent(inout)        :: ampl_best,ang(3)
+     real(DP), intent(out)          :: LnL_max
+     logical,  intent(in), optional :: ifrandom
 ! Works on global CTpp_cplm and CTpp_eval, 
 ! produces at best angles cut sky CTpp at unit amplitude
 ! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
@@ -33,7 +35,7 @@ MODULE Topology_Lmarg_mod
 
         ampl=-1.0d0
         write(0,'(''Set simplex of angles - '',$)')
-        CALL SET_amoeba_simplex(p,y)
+        CALL SET_amoeba_simplex(ang,p,y,ifrandom)
         write(0,*)'Done'
 
         write(0,*)'Going into Amoeba'
@@ -140,6 +142,7 @@ MODULE Topology_Lmarg_mod
        call projectedS3_to_angles(u,ang,ifsuccess)
        if ( .not.ifsuccess ) then
           LnLrotated_at_best_amplitude = Top_bad_value
+          write(0,*)'Failed S3 projection, LnL set to bad value'
           return
        endif
           
@@ -153,15 +156,6 @@ MODULE Topology_Lmarg_mod
 ! CTpp_evec is deassociated on output
        call RECONSTRUCT_FROM_EIGENVALUES()
        write(0,*)'and reconstructed'
-
-! Test output and stop ==============
-!       open(101,file='rotatedCTpp',form='unformatted')
-!       write(101)npix_cut
-!       write(101)CTpp
-!       close(101)
-!       stop
-! ===================================
-
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
@@ -198,7 +192,7 @@ MODULE Topology_Lmarg_mod
 
      FUNCTION LnLikelihood(ampl_in)
      !Find -Ln(Likelihood) for global CTpp and set (ampl CTpp + N)^-1
-
+     USE ct_io
      REAL(DP), intent(in) :: ampl_in
                            ! CTpp, map_npp and map_signal is global input
                            ! All are projected on a chosen basis
@@ -223,6 +217,9 @@ MODULE Topology_Lmarg_mod
        ! Resets the corrupted CNTpp matrix to get the real eigen values
           CNTpp=CTpp*exp(ampl_in)
           CNTpp=CNTpp+CNpp
+          call WriteCTpp('cntpp',CNTpp,nmode_cut,1)
+          call WriteCTpp('cnpp',CNpp,nmode_cut,1)
+          call WriteCTpp('ctpp',CTpp,nmode_cut,1)
           call DSYEV('V', 'L',nmode_cut,CNTpp,nmode_cut,eigen,WORK,34*nmode_cut,INFO)
           write(0,*) eigen
           LnLikelihood = Top_bad_value
@@ -310,13 +307,16 @@ MODULE Topology_Lmarg_mod
        RETURN
      END FUNCTION LmaxCurv
 
-     SUBROUTINE SET_amoeba_simplex(p,y)
+     SUBROUTINE SET_amoeba_simplex(ang,p,y,ifrandom)
+     real(DP), intent(in)                  :: ang(3)
      real(DP), intent(out), dimension(:,:) :: p
      real(DP), intent(out), dimension(:)   :: y
+     logical,  intent(in),  optional       :: ifrandom
 
      real(DP) :: st_ang=sqrt(2.0_dp)-1.0_dp, sq3=sqrt(3.0_dp), st_ang2
      real(DP) :: u(3), u2
      integer  :: i 
+     logical  :: ifsuccess
 
          ! Amoeba start in terms of Euler angles
 !        p(:,1) = (/ 0.0_dp, 0.0_dp, 0.0_dp, HALFPI /)    ! alphas
@@ -334,9 +334,20 @@ MODULE Topology_Lmarg_mod
 !        p(:,3) = (/ 0.0_dp, 1.0_dp,  0.0_dp, 0.0_dp /) 
 !        p = p*st_ang
 
-        ! Random projected S3 simplex (except first no rotation point)
+        ! Random projected S3 simplex
         st_ang2=st_ang**2
-        i=0
+        if ( present(ifrandom) .and. ifrandom ) then
+           i=0
+        else
+           ! except the first vertex
+           call angles_to_projectedS3(ang,u,ifsuccess)
+           if (.not.ifsuccess) then
+              write(0,*)'Unable to initialize amoeba with supplied angles, abort'
+              stop
+           endif
+           i=1
+           p(i,:)=u
+        endif
         do
           call random_number(u)
           u = 2.0_dp*(u - 0.5_dp)
@@ -349,6 +360,11 @@ MODULE Topology_Lmarg_mod
 
         do i=1,4
            y(i)=LnLrotated_at_best_amplitude(p(i,:))
+        enddo
+
+        write(0,*) 'Starting simplex:'
+        do i=1,4
+           write(0,'(5x,3(d12.4,1x),d15.7)') p(i,:),y(i)
         enddo
 
         return
