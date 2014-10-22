@@ -359,45 +359,15 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(out), dimension(3)  :: ang ! Euler angles
      logical,  intent(out)                :: ifsuccess
 
-     real(DP)  :: q(0:3), q03, q12
-     real(DP)  :: u2, ppf, pmf, DDOT
+     real(DP)  :: q(0:3)
 
      ! First step - from S3 projected onto equatorial plane to quartenion
-     u2 = DDOT(3,u,1,u,1)
-     if (u2 > 1.0_dp) then
-        ifsuccess = .false.
-        return
-     endif
-     q(0)   = (1.0_dp-u2)/(1.0_dp+u2)
-     q(1:3) = (2.0_dp/(1.0_dp+u2))*u(1:3)
+     call projectedS3_to_quartenion(u,q,ifsuccess)
+     if ( .not.ifsuccess ) return
 
      ! Second step - from quartenion to Euler angles,
-     ! ang=(phi,theta,psi) in Healpix ZYZ (fix axis) convention
+     call quartenion_to_angles(q,ang)
 
-     q03 = sqrt(q(0)**2 + q(3)**2)
-     q12 = sqrt(q(1)**2 + q(2)**2)
-     ang(2) = 2.0_dp*acos(q03)
-
-     if (q03 > q12) then
-        ppf = acos(q(0)/q03) 
-        if ( q12 < 1.0d-6 ) then
-           pmf = 0.0_dp
-        else
-           pmf = atan2(q(1),q(2))
-        endif
-     else
-        pmf = acos(q(2)/q12)
-        if ( q03 < 1.0d-6) then
-           ppf = 0.0_dp
-        else
-           ppf = atan2(q(3),q(0))
-        endif
-     endif
-
-     ang(1) = ppf - pmf
-     ang(3) = ppf + pmf
-
-     ifsuccess = .true.
      return
      END SUBROUTINE projectedS3_to_angles
 
@@ -407,37 +377,31 @@ MODULE Topology_Lmarg_mod
      logical,  intent(out)                :: ifsuccess
 
      real(DP)  :: q(0:3)
-     real(DP)  :: u2plus1,ppf,pmf,cost2,sint2,cosppf,sinppf,cospmf,sinpmf
 
      ! First step - from Euler angles to quartenion
+     call angles_to_quartenion(ang,q)
      
-     ppf = 0.5_dp*(ang(1)+ang(3))
-     pmf = 0.5_dp*(ang(3)-ang(1))
-     cost2  = cos(ang(2)/2.0_dp)
-     sint2  = sin(ang(2)/2.0_dp)
-     cosppf = cos(ppf)
-     sinppf = sin(ppf)
-     cospmf = cos(pmf)
-     sinpmf = sin(pmf)
-     
-     q(0) = cost2*cosppf
-     q(1) = sint2*sinpmf
-     q(2) = sint2*cospmf
-     q(3) = cost2*sinppf
+     ! Second step - from quartenion to projected u on equatorial plane
+     call quartenion_to_projectedS3(q,u,ifsuccess)
+
+     return
+     END SUBROUTINE angles_to_projectedS3
+
+     SUBROUTINE quartenion_to_projectedS3(q,u,ifsuccess)
+     real(DP), intent(in),  dimension(0:3) :: q
+     real(DP), intent(out), dimension(3)   :: u
+     logical,  intent(out)                 :: ifsuccess
 
      if ( q(0) < 0.0_dp ) then
-        write(0,*)'Angles do not correspond to northen semisphere of S3'
+        write(0,*)'quartenion does not correspond to northen semisphere of S3'
         ifsuccess = .false.
-        return
      endif
-
-     ! Second step - from quartenion to projected u on equatorial plane
-     u2plus1 = 2.0_dp/(1.0_dp+q(0))
-     u(1:3) = q(1:3)/u2plus1
+ 
+     u(1:3) = q(1:3)/(1.0_dp+q(0))
 
      ifsuccess = .true.
      return
-     END SUBROUTINE angles_to_projectedS3
+     END SUBROUTINE quartenion_to_projectedS3
 
      SUBROUTINE projectedS3_to_quartenion(u,q,ifsuccess)
      real(DP), intent(in),  dimension(3)   :: u   ! Projected S3 cartezian
@@ -473,14 +437,14 @@ MODULE Topology_Lmarg_mod
      ang(2) = 2.0_dp*acos(q03)
 
      if (q03 > q12) then
-        ppf = acos(q(0)/q03) 
+        ppf = atan2(q(3),q(0)) 
         if ( q12 < 1.0d-6 ) then
            pmf = 0.0_dp
         else
            pmf = atan2(q(1),q(2))
         endif
      else
-        pmf = acos(q(2)/q12)
+        pmf = atan2(q(1),q(2))
         if ( q03 < 1.0d-6) then
            ppf = 0.0_dp
         else
@@ -517,24 +481,5 @@ MODULE Topology_Lmarg_mod
      return
 
      END SUBROUTINE angles_to_quartenion
-
-     SUBROUTINE quartenion_to_projectedS3(q,u,ifsuccess)
-     real(DP), intent(in),  dimension(0:3) :: q
-     real(DP), intent(out), dimension(3)   :: u
-     logical,  intent(out)                 :: ifsuccess
-
-     real(DP)  :: u2plus1
-
-     if ( q(0) < 0.0_dp ) then
-        write(0,*)'quartenion do not correspond to northen semisphere of S3'
-        ifsuccess = .false.
-     endif
- 
-     u2plus1 = 2.0_dp/(1.0_dp+q(0))
-     u(1:3) = q(1:3)/u2plus1
-
-     ifsuccess = .true.
-     return
-     END SUBROUTINE quartenion_to_projectedS3
 
 END MODULE Topology_Lmarg_mod
