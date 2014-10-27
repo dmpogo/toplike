@@ -494,6 +494,8 @@ MODULE Topology_Lmarg_mod
      q(2) = sint2*cospmf
      q(3) = cost2*sinppf
 
+     ! Choose quartenion in Nothern hemisphere of S3
+     if ( q(0) < 0.0_dp ) q = -q
      return
 
      END SUBROUTINE angles_to_quartenion
