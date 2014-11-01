@@ -19,7 +19,6 @@ PROGRAM Topology_Lmarg
   LOGICAL :: found, do_nice_out_file, random_angles
  
   real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
-  !Dreal(DP) :: amp, lnamp !NELSON LOOP
   real(DP), allocatable, dimension(:,:) :: pixels
   integer(I4B)                          :: iter, niter, seed_size
   CHARACTER(LEN=255) :: nice_out_file, inputang
@@ -34,29 +33,32 @@ PROGRAM Topology_Lmarg
   read(*,'(a)') expdata_format
   read(*,*)     expdata_scale
   read(*,'(a)') map_signal_file
-! Map modification files
   read(*,'(a)') map_noise_file
+! Map modification files
   read(*,'(a)') map_mask_file
-  read(*,'(a)') beam_file
+  read(*,'(a)') map_beam_file
 ! Ring Weights file
   read(*,'(a)') w8_file
 ! Fiducial CTpp
   read(*,'(a)') fidfile
 ! CTpp file
   read(*,'(a)') infile
+! Theory smoothing
+  read(*,'(a)') ctpp_beam_file
 
   read(*,*) do_nice_out_file
 ! Read in parameters
   read(*,*) nside
   read(*,*) npol
+  read(*,*) lmax
 ! Next four parameters are strictly for printout
   read(*,*) nsh
   read(*,*) OmegaL
   read(*,*) H0
   read(*,*) Ok
 
-  read(*,*) beam_fwhm
-  read(*,*) lmax
+  read(*,*) map_beam_fwhm
+  read(*,*) ctpp_beam_fwhm
 
   read(*,*) do_rotate
   read(*,'(a)') inputang
@@ -73,12 +75,6 @@ PROGRAM Topology_Lmarg
   call random_seed(seed_size)
   call random_seed(put=iseed+37*(/ (iter-1, iter=1,seed_size) /))
 
-  IF (beam_fwhm == 0.0) THEN
-     do_Gsmooth=.FALSE.
-  ELSE
-     do_Gsmooth=.TRUE.
-  ENDIF
-
   INQUIRE(file=TRIM(map_signal_file),exist=found)
   WRITE(0,*) 'Signal:'
   WRITE(0,'(5x,255a)') TRIM(ADJUSTL(map_signal_file))
@@ -86,10 +82,17 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'Can not find file', TRIM(map_signal_file)
      STOP "No signal file"
   ENDIF
-  IF (do_Gsmooth) THEN
-     WRITE(0,*) 'Signal map smoothed by:'
-     WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
+
+  INQUIRE(file=TRIM(map_beam_file),exist=do_smooth_data)
+  IF (do_smooth_data) THEN
+     WRITE(0,*) 'Signal map smoothed by:',TRIM(map_beam_file)
   ENDIF
+  IF (map_beam_fwhm > 0.0_dp) THEN
+     do_smooth_data = .TRUE.
+     WRITE(0,*) 'Signal map smoothed by Gaussian beam:', map_beam_fwhm
+  ENDIF
+
+
 
   INQUIRE(file=TRIM(fidfile),exist=found)
   IF (found) THEN
@@ -109,16 +112,15 @@ PROGRAM Topology_Lmarg
      STOP "No CTpp file"
   ENDIF
 
-  INQUIRE(file=TRIM(beam_file),exist=do_expsmooth)
+  INQUIRE(file=TRIM(ctpp_beam_file),exist=do_smooth_ctpp)
   WRITE(0,*) 'CTpp smoothed by:'
   WRITE(0,*) '     - Pixel window:', nside 
-  IF (do_expsmooth .and. do_Gsmooth) THEN
-     WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
-     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
-  ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-     WRITE(0,*) '     - experimental beam:', TRIM(beam_file)
-  ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
-     WRITE(0,*) '     - Gaussian beam (arcmin):', beam_fwhm 
+  IF (do_smooth_ctpp) THEN
+     WRITE(0,*) '     - beam file:', TRIM(ctpp_beam_file)
+  ENDIF
+  IF (ctpp_beam_fwhm > 0.0_dp) THEN
+     do_smooth_ctpp = .TRUE.
+     WRITE(0,*) '     - Gaussian beam:', ctpp_beam_fwhm
   ENDIF
 
   INQUIRE(file=TRIM(map_mask_file),exist=found)
@@ -145,7 +147,9 @@ PROGRAM Topology_Lmarg
 
   IF ( add_noise_diag .or. add_noise_cov ) THEN
      add_noise = .true.
+     do_smooth_noise = do_smooth_ctpp
      WRITE(0,*) 'Adding noise to the map, diag=',add_noise_diag,' cov=',add_noise_cov
+     WRITE(0,*) 'Smoothing noise ',do_smooth_noise
   ELSE
      add_noise = .false.
      WRITE(0,*) 'Not adding noise'
@@ -199,17 +203,13 @@ PROGRAM Topology_Lmarg
 
     WRITE(103,'(1Xa)') 'CTpp smoothed by:'
     WRITE(103,'(1Xa,I4)') '     - Pixel window:', nside 
-    IF (do_expsmooth .and. do_Gsmooth) THEN
-       WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
-       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
-    ELSEIF (do_expsmooth .and. .not.do_Gsmooth) THEN
-       WRITE(103,'(1Xa,a)') '     - experimental beam:', TRIM(beam_file)
-    ELSEIF (.not.do_expsmooth .and. do_Gsmooth) THEN
-       WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
+    IF (do_smooth_ctpp ) THEN
+       WRITE(103,'(1Xa,a)') '    - beam:', TRIM(ctpp_beam_file)
     ENDIF
-    IF (do_Gsmooth) THEN
+
+    IF (do_smooth_data) THEN
        WRITE(103,'(1Xa)') 'Signal map smoothed by:'
-       WRITE(103,'(1Xa,F9.4)') '     - Gaussian beam (arcmin):', beam_fwhm 
+       WRITE(103,'(1Xa,a)') '    - beam:', TRIM(map_beam_file)
     ENDIF
   
     IF (do_mask) THEN
@@ -218,10 +218,9 @@ PROGRAM Topology_Lmarg
        WRITE(103,'(1Xa)') 'Not using a mask'
     ENDIF
     IF (add_noise) THEN
-      IF (do_Gsmooth .or. do_expsmooth) THEN
-         WRITE(103,'(1Xa)') 'Using full noise matrix'
-      ELSE
-         WRITE(103,'(1Xa)') 'Using only diagonal of noise matrix'
+      IF ( do_smooth_noise ) THEN
+         WRITE(103,'(1Xa)') 'Noise smoothed by:'
+         WRITE(103,'(1Xa,a)') '    - beam:', TRIM(map_beam_file)
       ENDIF
     ELSE
        WRITE(103,'(1Xa)') 'Not using noise'
@@ -250,31 +249,33 @@ PROGRAM Topology_Lmarg
 
 !-------------------------------------------------------------------
 ! Read and sets: 
-!       mask,npix_cut,map_signal(npix_cut),map_npp(npix_cut,npix_cut)
-! signal and noise are optionally smoothed 
+!       mask,npix_cut,map_signal(npix_cut),diag_npp(npix_cut)
+!       signal is optionally smoothed 
 
+  write(0,*)'Reading the data in ===================================='
   CALL Read_w8ring(nside,w8ring,w8_file)
   CALL ring2pixw8(w8ring,w8pix)
   allocate ( Wl(0:lmax,1:3) )
-  if (do_Gsmooth) then
-     CALL collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
-  else
-     CALL collect_beams(Wl,lmax,reset=.true.)
+  CALL collect_beams(Wl,lmax,reset=.true.)
+
+  if (do_smooth_data) then
+     CALL collect_beams(Wl,lmax,beamfile=map_beam_file,G_fwhm=map_beam_fwhm,reset=.false.)
   endif
   CALL ReadExpData(TRIM(ADJUSTL(expdata_format)))
-  write(0,*)'Read the data in ===================================='
  
 !-------------------------------------------------------------------
-! Add experimental beam and pixel window to preset Gaussian for CTpp smoothing
-  if (do_expsmooth) then
-     CALL collect_beams(Wl,lmax,beamfile=beam_file,nside=nside,reset=.false.)
-  else
-     CALL collect_beams(Wl,lmax,nside=nside,reset=.false.)
+! Read in and smooth noise convariance. Defines map_npp
+
+  write(0,*)'Reading the noise in ===================================='
+  if (do_smooth_noise) then
+     CALL collect_beams(Wl,lmax,beamfile=map_beam_file,G_fwhm=map_beam_fwhm,reset=.true.)
   endif
+  CALL READ_CovNoise()
 
 !-------------------------------------------------------------------
 ! Read in fiducial model and set up cut-sky mode basis
 
+  write(0,*)'Reading the fiducial model in ============================'
   CALL ReadCTpp(fidfile,FullSkyWorkSpace,npix_fits,npol,overwrite=.true.)
   write(0,'(2(a6,I6))')'nside=',nside,' npix=',npix_fits
   if ( nside /= npix2nside(npix_fits) ) then
@@ -283,26 +284,38 @@ PROGRAM Topology_Lmarg
   ntot=npix_fits*npol
   CTpp_fid => FullSkyWorkSpace
 
+  write(0,*)'Smoothing the fiducial model and setting basis modes ====='
+  CALL collect_beams(Wl,lmax,nside=nside,reset=.true.)
+  if (do_smooth_ctpp) then
+     CALL collect_beams(Wl,lmax,beamfile=ctpp_beam_file,G_fwhm=ctpp_beam_fwhm,reset=.false.)
+  endif
   CALL smooth_ctpp_lm(CTpp_fid,npix_fits,npol,lmax,window=Wl)
+
   CALL SET_BASIS_MODES()
  
-  write(0,*)'Basis modes defined =================================='
-
 !-------------------------------------------------------------------
 ! Expand the data in the basis. Deallocates map_npp and creates CNpp
+
+  write(0,*)'Projecting data and noise onto basis modes================='
 
   CALL PROJECT_VECTOR_ONTO_BASIS_MODES(map_signal)
   CALL PROJECT_NOISE_ONTO_BASIS_MODES()
 
-  write(0,*)'Data and Noise projected onto basis modes ============'
-
 !-------------------------------------------------------------------
 ! Read full sky CTpp in
 !
+  write(0,*)'reading in CTpp ==========================================='
+ 
   CALL ReadCTpp(infile,FullSkyWorkSpace,npix_fits,npol,overwrite=.false.)
   CTpp_full => FullSkyWorkSpace
 
+  write(0,*)'smoothing and normalizing CTpp ============================'
+  CALL collect_beams(Wl,lmax,nside=nside,reset=.true.)
+  if (do_smooth_ctpp) then
+     CALL collect_beams(Wl,lmax,beamfile=ctpp_beam_file,G_fwhm=ctpp_beam_fwhm,reset=.false.)
+  endif
   CALL smooth_ctpp_lm(CTpp_full,npix_fits,npol,lmax,window=Wl)
+
   CALL normalize_ctpp(CTpp_norm)
 
 !-------------------------------------------------------------------
@@ -318,6 +331,7 @@ PROGRAM Topology_Lmarg
   allocate(CTpp(0:nmode_cut-1,0:nmode_cut-1))
   allocate(CNTpp(0:nmode_cut-1,0:nmode_cut-1))
 
+  write(0,*)'Decomposing CTpp in eigenmodes and Ylm  =============='
 ! Decompose CTpp_full into eigenfuctions stored in CTpp_evec and CTpp_eval
 ! CTpp_full is destroyed and disassociated in favour of CTpp_evec
   CALL DECOMPOSE_AND_SAVE_EIGENVALUES()

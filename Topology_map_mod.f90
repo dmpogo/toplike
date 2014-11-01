@@ -5,7 +5,7 @@ MODULE Topology_map_mod
   USE PIX_TOOLS
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: make_fake_map, Write_map, ReadExpData
+  PUBLIC :: make_fake_map, Write_map, ReadExpData, Read_CovNoise
   
 CONTAINS
 
@@ -41,11 +41,10 @@ CONTAINS
     write(0,*)'random signal map has been generated and added to noise'
 
 ! Smooth full-sky map if needed
-    if (beam_fwhm > 0.0_dp) then
-       call collect_beams(Wl,lmax,G_fwhm=beam_fwhm,reset=.true.)
+    if (map_beam_fwhm > 0.0_dp) then
        allocate( alm(1:npol,0:lmax,0:lmax) )
        call map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
-       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alter_alm(nside,lmax,lmax,map_beam_fwhm,alm)
        call alm2map(nside,lmax,lmax,alm,map)
        write(0,*)'random map has been smoothed with Gaussian beam'
        deallocate( alm )
@@ -72,7 +71,7 @@ CONTAINS
     nside_loc=npix2nside(npix_loc)
     if ( npol == 1 ) polarization=.false.
 
-    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax,polar=polarization,fwhm_degree=beam_fwhm)
+    CALL write_minimal_header(header,'MAP',nside=nside_loc,ordering='RING',creator='Topology_make_map',coordsys='G',randseed=iseed,units='mK',nlmax=lmax,polar=polarization,fwhm_degree=map_beam_fwhm)
 
     INQUIRE(file=TRIM(ADJUSTL(map_file)),exist=filefound)
     IF(filefound) THEN
@@ -176,12 +175,12 @@ CONTAINS
 !Smooth and pack the signal.
 
     ALLOCATE(map_signal(0:npix_cut-1))
-    IF (do_Gsmooth) THEN
+    IF (do_smooth_data) THEN
        ALLOCATE( alm(1:1,0:lmax,0:lmax) )
        ALLOCATE( wmap_signal(0:npix_fits-1,1:1) )
        wmap_signal(:,1:1) = wmap_data(:,1:1) ! unfortunate copy to go to DP
        call map2alm_iterative(nside,lmax,lmax,iter_order,wmap_signal,alm,(/0.0_dp, 0.0_dp/),w8ring)
-       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alter_alm(nside,lmax,lmax,0.0_dp,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,wmap_signal(:,1))
        map_signal = pack(wmap_signal(:,1),map_mask)
        DEALLOCATE(alm, wmap_signal)
@@ -192,7 +191,7 @@ CONTAINS
 
 !Smooth noise if needed and store it in a cut sky matrix map_npp
     ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-    IF ( add_noise_diag.and.do_Gsmooth ) THEN
+    IF ( add_noise_diag.and.do_smooth_noise ) THEN
        call getclm(clm, lcount, wmap_noise, npix_fits, 1, lmax, w8_file=w8_file)
        call smooth_clm(clm, lcount, 1, Wl, lmax)
        call getcpp(map_npp, clm, lcount, 1, nside, mask=( wmap_mask > 0.5 ))
@@ -209,7 +208,7 @@ CONTAINS
     endif
 
     ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
-    if ( add_noise_diag.and.(.not.do_Gsmooth) ) then
+    if ( add_noise_diag.and.(.not.do_smooth_noise) ) then
        diag_noise = diag_noise + pack(wmap_noise(:,1),map_mask)
     endif
     DEALLOCATE(wmap_noise)
@@ -221,10 +220,7 @@ CONTAINS
 
   SUBROUTINE ReadPlanck_map()
     USE healpix_extras
-    USE ctpplm_transforms
-    USE beams
     USE ALM_TOOLS
-    USE ct_io
     !Global map_signal,map_npp,diag_noise,map_signal_file,map_mask_file,nside
     
     INTEGER :: i,j,ordering,ifpol,lcount,npix,nmaps,nnoise,nmasks,iter_order=5
@@ -232,9 +228,7 @@ CONTAINS
     logical,     DIMENSION(:,:),     ALLOCATABLE :: bool_mask
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: alm
     complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: clm
-    REAL(DP), DIMENSION(:),   ALLOCATABLE :: diag_noise
     REAL(DP), DIMENSION(:,:), ALLOCATABLE :: exp_noise,exp_data,exp_mask,bpp
-    REAL(DP), DIMENSION(0:3)              :: mpoles
     
 ! Global npol=1,2 or 3 controls data used (I, QU, or IQU) 
 ! Input must be full-sky in globally accessible files 
@@ -266,12 +260,11 @@ CONTAINS
     exp_data=exp_data*expdata_scale   ! convert to mK, from whatever input is
                                       ! assumes same scale for I and QU
 
+    allocate(exp_noise(0:npix-1,1:nmaps))
+    exp_noise=1.0_dp
     IF ( add_noise_diag ) THEN
-       ! Assumes diagonal noise, 
-       ! and exp_noise to contain noise per pixel in same units as map
-       ! This expected to be changed at least due to QU correlation
+       ! Assumes exp_noise to contain noise per pixel in same units as map
        write(0,'(a,a)') '> ', TRIM(ADJUSTL(map_noise_file))
-       allocate(exp_noise(0:npix-1,1:nmaps))
        if (getsize_fits(map_noise_file,nmaps=nnoise) /= npix) &
           stop 'sizes of the signal and noise files are inconsistent'
        call input_map(TRIM(ADJUSTL(map_noise_file)),exp_noise,npix,nnoise)
@@ -281,8 +274,7 @@ CONTAINS
     ELSE IF ( add_noise_cov ) THEN
        ! If noise is given as covariance, it should be in the  final
        ! working pixelization. No infrastructure noise covariance coarsening.
-       call ReadCTpp(map_noise_file,exp_noise,npix_fits,nmaps)
-       exp_noise=exp_noise*(expdata_scale**2)
+       write(0,*)'Covariance matrix will be read in separately'
     ENDIF
 
     ALLOCATE(exp_mask(0:npix-1,1:nmaps))
@@ -356,66 +348,90 @@ CONTAINS
   
 ! Smooth (in lm space) and pack signal
 
-    IF (do_Gsmooth) THEN
+    IF (do_smooth_data) THEN
        ALLOCATE( alm(1:nmaps,0:lmax,0:lmax) )
        call map2alm_iterative(nside,lmax,lmax,iter_order,exp_data,alm,(/0.0_dp, 0.0_dp/),w8ring)
        write(0,*) 'Monopole and Dipole ',alm(1:nmaps,0:1,0:1)
        alm(1:nmaps,0:1,0:1) = cmplx(0.0_dp,0.0_dp)
-       call alter_alm(nside,lmax,lmax,beam_fwhm,alm,window=Wl)
+       call alter_alm(nside,lmax,lmax,0.0_dp,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,exp_data)
        DEALLOCATE(alm)
     ENDIF
 
-    ALLOCATE(map_signal(0:npix_cut-1))
-    map_signal=PackMasked(exp_data,bool_mask)
-
-!========= Down there needs to be worked on ====================
-!Smooth noise if needed and store it in a cut sky matrix map_npp
-    ALLOCATE(map_npp(0:npix_cut-1,0:npix_cut-1))
-
-    IF ( (add_noise_diag .or. add_noise_cov) .and. do_Gsmooth ) THEN
-       ! Should work whether exp_noise is diagonal or covariance matrix
-       call getclm(clm, lcount, exp_noise, npix_fits, nmaps, lmax, w8_file=w8_file)
-       call smooth_clm(clm, lcount, nmaps, Wl, lmax)
-       call getcpp(map_npp, clm, lcount, nmaps, nside, mask=bool_mask)
-    ELSE IF ( add_noise_cov ) THEN
-       ! cov matrix with no smoothing, direct masking
-       i = 0
-       do j=0,ntot-1
-          if ( map_mask(j) ) then
-             map_npp(:,i) = pack( exp_noise(:,j), map_mask )
-             i = i+1
-          endif
-       enddo
-    ELSE  
-       ! diag and no smoothing or no noise at all
-       map_npp=0.0_dp
+    ALLOCATE(diag_noise(0:npix_cut-1))
+    IF ( add_noise_diag ) THEN
+       diag_noise=PackMasked(exp_noise,bool_mask)
+       DEALLOCATE(exp_noise)
+    ELSE
+      diag_noise = 0.0_dp
     ENDIF
 
-!    exp_data(:,1) = unpack(map_signal,map_mask,-1.6375d30)
-!    call Write_map(exp_data,'ppp_smica_0.1_0.6')
-!    DEALLOCATE(exp_data)
-!    stop
-
-! diagonal noise needs always to be defined, although may be zero
-    ALLOCATE(diag_noise(0:npix_cut-1))
-    if ( epsil > 0.0 ) then
-        diag_noise = epsil
-    else 
-        diag_noise = 0.0d0
-    endif
-
-    ! If noise was smoothed, it is in map_npp, otherwise add sigma^2/hit_counts
-    if ( add_noise_diag.and.(.not.do_Gsmooth) ) then
-       diag_noise = diag_noise + PackMasked(exp_noise,bool_mask)
-    endif
-
-    if ( allocated(exp_noise) ) DEALLOCATE(exp_noise)
-
-    FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
+    ALLOCATE(map_signal(0:npix_cut-1))
+    map_signal=PackMasked(exp_data,bool_mask)
+    DEALLOCATE(exp_data,bool_mask)
 
     RETURN
   END SUBROUTINE ReadPlanck_map
+
+  SUBROUTINE Read_CovNoise()
+    USE healpix_extras
+    USE ctpplm_transforms
+    USE beams
+    USE ALM_TOOLS
+    USE ct_io
+    !Global  map_npp,diag_noise,,map_mask,nside,npix_fits,map_noise_file
+    ! Assumes map_mask to be defined, everything is in RING
+    
+    INTEGER                                      :: i,j,lcount
+    complex(DP), DIMENSION(:,:,:),   ALLOCATABLE :: clm
+
+! Allocate arrays and input necessary data. 
+
+    allocate( map_npp(0:ntot-1,0:ntot-1) )
+    IF ( add_noise_cov ) THEN
+       ! If noise is given as covariance, it should be in the  final
+       ! working pixelization. No infrastructure noise covariance coarsening.
+       call ReadCTpp(map_noise_file,map_npp,npix_fits,npol)
+       map_npp=map_npp*(expdata_scale**2)
+    ELSE
+       map_npp=0.0_dp
+    ENDIF
+
+!Smooth noise if needed and store it in a cut sky matrix map_npp
+
+    IF (  add_noise_cov ) THEN
+       IF ( do_smooth_noise ) THEN
+          ! cov matrix smoothed and masked on reconstruction
+          call getclm(clm, lcount, map_npp, npix_fits, npol, lmax, w8_file=w8_file)
+          call smooth_clm(clm, lcount, npol, Wl, lmax)
+          call getcpp(map_npp, clm, lcount, npol, nside)
+          deallocate( clm )
+          write(0,*) 'Noise covariance has been smoothed'
+       ENDIF
+
+       IF ( do_mask ) THEN
+          i = 0
+          do j=0,ntot-1
+             if ( map_mask(j) ) then
+                map_npp(0:npix_cut-1,i) = pack( map_npp(:,j), map_mask )
+                i = i+1
+             endif
+          enddo
+       ENDIF
+    ENDIF
+
+! if diagonal noise was defined, add it unsmoothed
+    IF ( add_noise_diag ) THEN
+       FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + diag_noise(i)
+    ENDIF
+
+! if we have regularizer, add it
+    IF ( epsil > 0.0_dp ) THEN
+       FORALL(i=0:npix_cut-1) map_npp(i,i) = map_npp(i,i) + epsil
+    ENDIF
+
+    RETURN
+  END SUBROUTINE Read_CovNoise
 
   SUBROUTINE REBIN_MAP(exp_data,exp_noise,exp_mask,npixin,npixout,ordering)
     USE udgrade_nr

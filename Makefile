@@ -9,7 +9,7 @@ FC	= ifort
 OMP     = -openmp
 #CHECKS = -check all
 CHECKS =
-PROFILING= # -pg
+PROFILING= # -g -pg
 FFLAGS	= -O -w $(OMP)  -module $(MODULEDIR1) -fpp $(CHECKS) $(PROFILING)
 LDFLAGS	= 
 

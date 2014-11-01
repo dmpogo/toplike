@@ -16,7 +16,7 @@ MODULE TOPOLOGY_TYPES
 
 ! Eigenmode basis type:   0 - S/N, 1 - C Bweight, negative - scaled P
 
-  INTEGER(I1B), PARAMETER :: BASIS_TYPE = -1
+  INTEGER(I1B), PARAMETER :: BASIS_TYPE = 1
 
 ! Eigenmode cut strategy, for cut sky basis and full sky CTpp_full
   INTEGER(I1B), PARAMETER :: S_NONE=0, S_LCUT=1, S_NCUT=2, S_CONDITIONING=3
@@ -49,7 +49,7 @@ MODULE TOPOLOGY_TYPES
 ! Data
   CHARACTER(LEN=6)                           :: expdata_format='WMAP'
   REAL(DP)                                   :: expdata_scale=1.0_dp
-  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal
+  REAL(DP),    DIMENSION(:),   ALLOCATABLE   :: map_signal, diag_noise
   REAL(DP),    DIMENSION(:,:), ALLOCATABLE   :: map_npp
   LOGICAL,     DIMENSION(:),   ALLOCATABLE   :: map_mask
 
@@ -77,12 +77,12 @@ MODULE TOPOLOGY_TYPES
 ! ====================================================
 ! Files
   CHARACTER(len=255)  :: map_signal_file, map_noise_file, map_mask_file
-  CHARACTER(len=255)  :: w8_file, beam_file
+  CHARACTER(len=255)  :: w8_file, map_beam_file, ctpp_beam_file
   CHARACTER(len=255)  :: infile, fidfile
 
 ! ====================================================
 ! Global numerical variables
-  REAL(DP) :: epsil, Ok, OmegaL, H0, beam_fwhm, logdetCTpp
+  REAL(DP) :: epsil, Ok, OmegaL, H0, map_beam_fwhm, ctpp_beam_fwhm, logdetCTpp
   INTEGER  :: nside, npix_fits, npol, ntot
   INTEGER  :: npix_cut, npix_cut_I, npix_cut_QU
   INTEGER  :: lmax, iseed, nsh
@@ -92,7 +92,6 @@ MODULE TOPOLOGY_TYPES
 ! Job Control variables
   LOGICAL  :: do_mask, do_rotate, find_best_angles
   LOGICAL  :: add_noise, add_noise_diag, add_noise_cov
-  LOGICAL  :: do_Gsmooth, do_expsmooth
-  LOGICAL  :: make_map, make_map_only
+  LOGICAL  :: do_smooth_data, do_smooth_ctpp, do_smooth_noise
 
 END MODULE TOPOLOGY_TYPES

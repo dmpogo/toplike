@@ -336,9 +336,9 @@ CONTAINS
       allocate(mt(npix_cut,nmode_cut))
       if ( BASIS_TYPE == 0 ) then     ! map_npp is in lower Cholesky form, do (VM^T L)(L^T VM)
          mt = VM
-         call DTRMM('L','L','T','N',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,mt,npix_cut)
+         call DTRMM('L','L','T','N',npix_cut,nmode_cut,1.0_dp,map_npp,ntot,mt,npix_cut)
       else                            ! map_npp is full, do VM^T map_npp VM
-         call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,map_npp,npix_cut,VM,npix_cut,0.0_dp,mt,npix_cut)
+         call DSYMM('L','L',npix_cut,nmode_cut,1.0_dp,map_npp,ntot,VM,npix_cut,0.0_dp,mt,npix_cut)
       endif
       deallocate(map_npp)
 
