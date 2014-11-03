@@ -38,15 +38,15 @@ CONTAINS
     call dgemv('N',ntot,n_evalues,1.0_dp,CTpp_evec,ntot,random_numbers,1,0.0_dp,WORK,1)
     map=reshape( WORK, (/ npix_fits, npol /) )
     deallocate(WORK,random_numbers)
-    write(0,*)'random signal map has been generated and added to noise'
+    write(0,*)'random map has been generated'
 
 ! Smooth full-sky map if needed
-    if (map_beam_fwhm > 0.0_dp) then
+    if ( do_smooth_data ) then
        allocate( alm(1:npol,0:lmax,0:lmax) )
        call map2alm_iterative(nside,lmax,lmax,iter_order,map,alm,(/0.0_dp, 0.0_dp/),w8ring)
-       call alter_alm(nside,lmax,lmax,map_beam_fwhm,alm)
+       call alter_alm(nside,lmax,lmax,0.0_dp,alm,window=Wl)
        call alm2map(nside,lmax,lmax,alm,map)
-       write(0,*)'random map has been smoothed with Gaussian beam'
+       write(0,*)'random map has been smoothed with window in Wl'
        deallocate( alm )
     endif
 
