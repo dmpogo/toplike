@@ -113,6 +113,16 @@ MODULE Topology_Lmarg_mod
 
      END SUBROUTINE FIND_BEST_AMPLITUDE
 
+     SUBROUTINE ROTATE_FIXED_AMPLITUDE(ampl_in,ang,LnL_max) 
+     real(DP), intent(in)   :: ampl_in,ang(3)
+     real(DP), intent(out)  :: LnL_max
+
+! This sets intermittent CTpp from globally stored persistent data
+       call CTpp_rotated(ang)
+       LnL_max=LnLikelihood(ampl_in)
+
+     END SUBROUTINE ROTATE_FIXED_AMPLITUDE
+
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! Low level drivers. Depend on the current state of intermittent global
 ! variables. Care must be taken to ensure they are correct before
@@ -120,9 +130,6 @@ MODULE Topology_Lmarg_mod
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
      FUNCTION LnLrotated_at_best_amplitude(u)   ! driver for amoeba
-     use Topology_types
-     use Topology_map_mod
-     use LM_ROTATE
 
 ! 'ampl' is private global, invisible from outside, so calling this
 ! routine directly means no handle on initial guess for the amplitude.
@@ -133,7 +140,7 @@ MODULE Topology_Lmarg_mod
      real(DP), intent(in), dimension(:) :: u ! Vector on S3 projection
      real(DP)                           :: LnLrotated_at_best_amplitude
 
-     real(DP) :: ang(3),  DDOT
+     real(DP) :: ang(3)
      logical  :: ifsuccess
 
 ! Convert projected coordinates into Euler angles and ensure the valid range
@@ -146,16 +153,8 @@ MODULE Topology_Lmarg_mod
           return
        endif
           
-! Rotate full sky eigevectors in CTpp_cplm form into current CTpp_evec
-       CTpp_evec => FullSkyWorkSpace
-       call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,npol,lmax,ang(1),ang(2),ang(3),.TRUE.)
-       write(0,'(a,3(1x,f10.7))') 'a',ang
-
-! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky CTpp 
-! then project CTpp onto mode basis
-! CTpp_evec is deassociated on output
-       call RECONSTRUCT_FROM_EIGENVALUES()
-       write(0,*)'and reconstructed'
+! Rotate CTpp
+       call CTpp_rotated(ang)
 
 ! Find best amplitude and store (Abest*C+N)^-1 in CNTpp. 
 ! We use private global ampl to set initial guess and store the best-fit result 
@@ -306,6 +305,29 @@ MODULE Topology_Lmarg_mod
        deallocate(vec1,vec2)
        RETURN
      END FUNCTION LmaxCurv
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+! Utilities
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+     SUBROUTINE CTpp_rotated(ang)           ! sets intermittent rotated CTpp
+     use Topology_map_mod
+     use LM_ROTATE
+
+     real(DP), intent(in) :: ang(3)
+
+! Rotate full sky eigevectors in CTpp_cplm form into current CTpp_evec
+       CTpp_evec => FullSkyWorkSpace
+       call rotate_ctpp(CTpp_evec,CTpp_cplm,nside,n_evalues,npol,lmax,ang(1),ang(2),ang(3),.TRUE.)
+       write(0,'(a,3(1x,f10.7))') 'a',ang
+
+! From rotated CTpp_evec and global Ctpp_eval reconstruct cut-sky CTpp 
+! then project CTpp onto mode basis
+! CTpp_evec is deassociated on output
+       call RECONSTRUCT_FROM_EIGENVALUES()
+       write(0,*)'and reconstructed'
+     END SUBROUTINE CTpp_rotated
+
 
      SUBROUTINE SET_amoeba_simplex(ang,p,y,ifrandom)
      real(DP), intent(in)                  :: ang(3)
