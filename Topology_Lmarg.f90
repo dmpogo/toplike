@@ -18,7 +18,8 @@ PROGRAM Topology_Lmarg
 
   LOGICAL :: found, do_nice_out_file, random_angles
  
-  real(DP) :: ampl_best, ampl_var, ampl_curv, LnL_max, CTpp_norm, ang(3)
+  type(LikelihoodData) :: LnL_max
+  real(DP)             :: ampl_var, ampl_curv, CTpp_norm
   real(DP), allocatable, dimension(:,:) :: pixels
   integer(I4B)                          :: iter, niter, seed_size
   CHARACTER(LEN=255) :: nice_out_file, inputang
@@ -169,12 +170,12 @@ PROGRAM Topology_Lmarg
   IF (do_rotate) THEN
      if ( index(inputang,'random') /= 0 ) then
         random_angles=.true.
-        ang=(/0.0_dp,0.0_dp,0.0_dp/)
+        LnL_max%ang=(/0.0_dp,0.0_dp,0.0_dp/)
         WRITE(0,*)'Rotating to random angles'
      else
         random_angles=.false.
-        read(inputang,*) ang
-        WRITE(0,'(1x,"Rotating to:",3(1x,d12.4))') ang
+        read(inputang,*) LnL_max%ang
+        WRITE(0,'(1x,"Rotating to:",3(1x,d12.4))') LnL_max%ang
      endif 
 
      if (find_best_angles) then
@@ -237,7 +238,7 @@ PROGRAM Topology_Lmarg
        if ( index(inputang,'random') /= 0 ) then
           WRITE(103,'(1Xa)')'Rotating to random angles'
        else
-          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',ang
+          WRITE(103,'(1Xa, 2XE11.5E2, 2XE11.5E2, 2XE11.5E2)')'Rotating to :',LnL_max%ang
        endif 
 
        IF(find_best_angles) THEN
@@ -349,14 +350,13 @@ PROGRAM Topology_Lmarg
   if (do_rotate) then
      write(0,*) 'Starting angles ', TRIM(inputang)
      if (find_best_angles) then
-        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max,random_angles)
+        CALL FIND_BEST_ANGLES_AND_AMPLITUDE(LnL_max,random_angles)
      else
-        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,random_angles)
+        CALL ROTATE_AND_FIND_BEST_AMPLITUDE(LnL_max,random_angles)
      endif
   else
-     CALL FIND_BEST_AMPLITUDE(ampl_best,LnL_max)
+     CALL FIND_BEST_AMPLITUDE(LnL_max)
   endif
-  ampl_best=exp(ampl_best)
 
 !-------------------------------------------------------------------
 ! At the result of LnLikelihood call, CNTpp contains (Abest*CTpp+Npp)^-1
@@ -371,20 +371,20 @@ PROGRAM Topology_Lmarg
   ampl_curv=1.d0/sqrt(ampl_curv)
  
 ! Debug output, will be written at the end of all convergence steps
-  WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
-  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
-  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)
-  WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max%LnL
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max%LnL-log(ampl_var)
+  WRITE(0,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max%LnL-log(ampl_curv)
+  WRITE(0,'(a, 1pd15.7)') ' Ampl  best   : ', exp(LnL_max%ampl)
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
   WRITE(0,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
   WRITE(0,'(a, 1pd15.7)') ' CTpp  norm   : ', CTpp_norm
-  WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', ang
+  WRITE(0,'(a, 3(1x,d12.4))') ' Angles best  :', LnL_max%ang
  
 ! Final one line answer to the standard output
-  WRITE(*,'(f9.4,7(1x,d15.7),3(1x,d12.4))')                        &
+  WRITE(*,'(f9.4,4(1x,d15.7),3(1x,d12.4),5(1x,d15.7))')                        &
         Ok,                                                  &
-        LnL_max,LnL_max-log(ampl_var),LnL_max-log(ampl_curv),&
-        ampl_best,ampl_var,ampl_curv,CTpp_norm,ang
+        LnL_max,LnL_max%LnL-log(ampl_var),LnL_max%LnL-log(ampl_curv),&
+        ampl_var,ampl_curv,CTpp_norm
 
   enddo
 
@@ -392,10 +392,10 @@ PROGRAM Topology_Lmarg
   if (do_nice_out_file) then
      WRITE(103,'(1Xa,I)') 'npix_cut      : ', npix_cut
      WRITE(103,'(1Xa,I)') 'nmode_cut     : ', nmode_cut
-     WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max
-     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max-log(ampl_var)
-     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max-log(ampl_curv)
-     WRITE(103,'(a, 1pd15.7)') ' Ampl  best   : ', ampl_best
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) max    : ', LnL_max%LnL
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(F): ', LnL_max%LnL-log(ampl_var)
+     WRITE(103,'(a, 1pd15.7)') '-Ln(L) marg(C): ', LnL_max%LnL-log(ampl_curv)
+     WRITE(103,'(a, 1pd15.7)') ' Ampl  best   : ', exp(LnL_max%ampl)
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(F) : ', ampl_var
      WRITE(103,'(a, 1pd15.7)') ' Ampl  var(C) : ', ampl_curv
      WRITE(103,'(a, I)')'Normalization range l=2,',lnorm

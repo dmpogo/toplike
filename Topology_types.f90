@@ -7,6 +7,16 @@ MODULE TOPOLOGY_TYPES
   CHARACTER(LEN=*), PARAMETER :: version = 'Winter2014'
   
 ! ====================================================
+! Output
+  TYPE LikelihoodData
+       REAL(DP)  :: LnL    ! minus log Likelhood LnL = 0.5*( Det + chisq )
+       REAL(DP)  :: Det    ! log of the determinant
+       REAL(DP)  :: chisq  ! chi square part
+       REAL(DP)  :: ampl   ! amplitude
+       REAL(DP)  :: ang(3) ! orientation Euler angles
+  END TYPE LikelihoodData
+     
+! ====================================================
 ! Debugging output
   LOGICAL  :: DEBUG=.false.
   LOGICAL  :: STORE_REBINNED_MAPS=.true., STOP_AFTER_STORING_REBINNED_MAPS=.false.
@@ -30,8 +40,8 @@ MODULE TOPOLOGY_TYPES
   END TYPE EVALUE_CUT
 
   TYPE(EVALUE_CUT) :: evalue_cut_fsky=EVALUE_CUT(S_NONE,0,0,0.0,.false.,0.0)
-!  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1085,0.0,.false.,0.0)
-  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,837,0.0,.false.,0.0)
+  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1085,0.0,.false.,0.0)
+!  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,837,0.0,.false.,0.0)
 !  TYPE(EVALUE_CUT) :: evalue_cut_csky=EVALUE_CUT(S_NCUT,0,1200,0.0,.false.,0.0)
 
 ! ====================================================

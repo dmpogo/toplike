@@ -8,9 +8,9 @@ MODULE Topology_Lmarg_mod
   USE nr_minimization
   IMPLICIT NONE
 
-  real(DP) :: ampl                  ! amplitude, available for local routines
+  real(DP) :: ampl, trace, LnL_exp  ! amplitude, available for local routines
 
-  PRIVATE ampl
+  PRIVATE ampl,trace,LnL_exp
 
   CONTAINS
 
@@ -20,10 +20,9 @@ MODULE Topology_Lmarg_mod
 ! All of them set CTpp and CNTpp=(CTpp+N)^-1 as byproduct
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-     SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom)
-     real(DP), intent(inout)        :: ampl_best,ang(3)
-     real(DP), intent(out)          :: LnL_max
-     logical,  intent(in), optional :: ifrandom
+     SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE(LnL_max,ifrandom)
+     type(LikelihoodData), intent(inout)  :: LnL_max
+     logical,  intent(in), optional       :: ifrandom
 ! Works on global CTpp_cplm and CTpp_eval, 
 ! produces at best angles cut sky CTpp at unit amplitude
 ! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
@@ -35,7 +34,7 @@ MODULE Topology_Lmarg_mod
 
         ampl=-1.0d0
         write(0,'(''Set simplex of angles - '',$)')
-        CALL SET_amoeba_simplex(ang,p,y,ifrandom)
+        CALL SET_amoeba_simplex(LnL_max%ang,p,y,ifrandom)
         write(0,*)'Done'
 
         write(0,*)'Going into Amoeba'
@@ -52,18 +51,19 @@ MODULE Topology_Lmarg_mod
         ! the best, so Ctpp and ampl is not correct. 
         ! Repeat the run with the best angles
 
-        LnL_max=LnLrotated_at_best_amplitude(p(1,:))
-        ampl_best=ampl
-        call projectedS3_to_angles(p(1,1:3),ang,ifsuccess)
+        LnL_max%LnL  = LnLrotated_at_best_amplitude(p(1,:))
+        call projectedS3_to_angles(p(1,1:3),LnL_max%ang,ifsuccess)
+        LnL_max%ampl = ampl
+        LnL_max%Det  = trace
+        LnL_max%chisq = LnL_exp
 
         return  
      END SUBROUTINE  FIND_BEST_ANGLES_AND_AMPLITUDE
 
 
-     SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max,ifrandom)
-     real(DP), intent(inout)        :: ang(3)
-     real(DP), intent(out)          :: ampl_best,LnL_max
-     logical,  intent(in), optional :: ifrandom
+     SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE(LnL_max,ifrandom)
+     type(LikelihoodData), intent(inout)  :: LnL_max
+     logical,  intent(in), optional       :: ifrandom
 
 ! Works on global CTpp_cplm and CTpp_eval, 
 ! produces after rotation cutsky CTpp at unit amplitude
@@ -91,35 +91,38 @@ MODULE Topology_Lmarg_mod
             call quartenion_to_projectedS3(q,u,ifsuccess)
 
             if ( ifsuccess ) then 
-               call projectedS3_to_angles(u,ang,ifsuccess)
+               call projectedS3_to_angles(u,LnL_max%ang,ifsuccess)
                exit
             endif
           enddo
        else
-          call angles_to_projectedS3(ang,u,ifsuccess)
+          call angles_to_projectedS3(LnL_max%ang,u,ifsuccess)
        endif
 
-       LnL_max=LnLrotated_at_best_amplitude(u)
-       ampl_best=ampl
+       LnL_max%LnL  = LnLrotated_at_best_amplitude(u)
+       LnL_max%ampl = ampl
+       LnL_max%Det  = trace
+       LnL_max%chisq = LnL_exp
 
      END SUBROUTINE ROTATE_AND_FIND_BEST_AMPLITUDE
 
-     SUBROUTINE FIND_BEST_AMPLITUDE(ampl_best,LnL_max) 
-     real(DP), intent(out)   :: ampl_best,LnL_max
+     SUBROUTINE FIND_BEST_AMPLITUDE(LnL_max) 
+     type(LikelihoodData), intent(out)   :: LnL_max
 
      real(DP), dimension(3)  :: ang=(/0.0_dp,0.0_dp,0.0_dp/)
 
-       call ROTATE_AND_FIND_BEST_AMPLITUDE(ampl_best,ang,LnL_max)
+       call ROTATE_AND_FIND_BEST_AMPLITUDE(LnL_max)
 
      END SUBROUTINE FIND_BEST_AMPLITUDE
 
-     SUBROUTINE ROTATE_FIXED_AMPLITUDE(ampl_in,ang,LnL_max) 
-     real(DP), intent(in)   :: ampl_in,ang(3)
-     real(DP), intent(out)  :: LnL_max
+     SUBROUTINE ROTATE_FIXED_AMPLITUDE(LnL_max) 
+     type(LikelihoodData), intent(inout)   :: LnL_max
 
 ! This sets intermittent CTpp from globally stored persistent data
-       call CTpp_rotated(ang)
-       LnL_max=LnLikelihood(ampl_in)
+       call CTpp_rotated(LnL_max%ang)
+       LnL_max%LnL   = LnLikelihood(LnL_max%ampl)
+       LnL_max%Det   = trace
+       LnL_max%chisq = LnL_exp
 
      END SUBROUTINE ROTATE_FIXED_AMPLITUDE
 
@@ -184,6 +187,7 @@ MODULE Topology_Lmarg_mod
 
        relerr=abs(err/bx)
        LnL_bestampl=brent(fb,ax,bx,cx,LnLikelihood,relerr,ampl_best)
+       LnL_bestampl=LnLikelihood(ampl_best)
        write(0,*) 'Best amplitude', ampl_best
        return
      END FUNCTION LnL_bestampl
@@ -200,7 +204,7 @@ MODULE Topology_Lmarg_mod
      INTEGER :: INFO, i, j 
      REAL(DP), DIMENSION(nmode_cut) :: vec
      REAL(DP) :: LnLikelihood
-     REAL(DP) :: trace, LnL_exp, ampl_0noisebest, LnL_0noisebest, DDOT
+     REAL(DP) :: ampl_0noisebest, LnL_0noisebest, DDOT
      REAL(DP), allocatable, dimension(:) :: eigen,WORK
      
 !   scale CTpp and add noise.
