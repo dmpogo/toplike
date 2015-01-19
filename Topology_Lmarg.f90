@@ -140,6 +140,7 @@ PROGRAM Topology_Lmarg
      WRITE(0,*) 'No noise file'  ! Some formats (WMAP) do not require 
                                  ! separate noise file, so add_noise
                                  ! will decide if any of the noise is used
+     WRITE(0,*) TRIM(map_noise_file)
      IF ( add_noise_cov ) THEN
         WRITE(0,*) 'Noise via covariance cant be used'
         add_noise_cov = .false.
@@ -148,7 +149,7 @@ PROGRAM Topology_Lmarg
 
   IF ( add_noise_diag .or. add_noise_cov ) THEN
      add_noise = .true.
-     do_smooth_noise = do_smooth_ctpp
+     do_smooth_noise = do_smooth_data
      WRITE(0,*) 'Adding noise to the map, diag=',add_noise_diag,' cov=',add_noise_cov
      WRITE(0,*) 'Smoothing noise ',do_smooth_noise
   ELSE

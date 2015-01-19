@@ -124,7 +124,7 @@ PROGRAM Topology_make_map
 
 
 !-------------------------------------------------------------------
-! Read in and smooth noise convariance. Defines map_npp
+! Read in noise convariance. Defines map_npp
 
    if ( add_noise ) then
       ! Set up full sky parameters
