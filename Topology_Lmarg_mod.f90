@@ -68,32 +68,16 @@ MODULE Topology_Lmarg_mod
 ! Works on global CTpp_cplm and CTpp_eval, 
 ! produces after rotation cutsky CTpp at unit amplitude
 ! and (Abest*CTpp + N)^-1 in CNTpp at best amplitude
-     real(DP)  :: st_ang2=3.0_dp-2.0_dp*sqrt(2.0_dp)
-     real(DP)  :: u(3),u2,q(0:3),spsi,stheta
+     real(DP)  :: u(3),u2
      logical   :: ifsuccess
 
        ampl=-1.0d0
        if ( present(ifrandom) .and. ifrandom ) then
           do
             call random_number(u)
-
-            !u = 2.0_dp*(u - 0.5_dp)
-            !u2 = dot_product(u,u)
-            !if (u2 > st_ang2) cycle
-
-            q(0:1)=2.0_dp*u(1:2)-1.0_dp
-            q(2)=cos(u(3)*PI)           
-            q(3)=sin(u(3)*PI)           
-            spsi=sqrt(1.0_dp-q(0)**2)
-            stheta=sqrt(1.0_dp-q(1)**2)
-            q(2:3)=q(2:3)*stheta
-            q(1:3)=q(1:3)*spsi
-            call quartenion_to_projectedS3(q,u,ifsuccess)
-
-            if ( ifsuccess ) then 
-               call projectedS3_to_angles(u,LnL_max%ang,ifsuccess)
-               exit
-            endif
+            u = 2.0_dp*(u - 0.5_dp)
+            u2 = dot_product(u,u)
+            if (u2 < 1.0_dp) exit
           enddo
        else
           call angles_to_projectedS3(LnL_max%ang,u,ifsuccess)
