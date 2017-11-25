@@ -13,6 +13,7 @@ PROGRAM Topology_Lmarg
   USE beams,          ONLY : collect_beams, smooth_ctpp_lm
   USE lm_rotate,      ONLY : getcplm
   USE ct_io
+  USE highl_likelihood_mod
   USE PIX_TOOLS
   IMPLICIT NONE
 
@@ -70,6 +71,9 @@ PROGRAM Topology_Lmarg
   read(*,*) add_noise_diag
   read(*,*) add_noise_cov
   read(*,*) epsil
+
+! whether to add highl likelihood
+  read(*,*) do_highl
 
 !======================================================================
 
@@ -248,6 +252,20 @@ PROGRAM Topology_Lmarg
        WRITE(103,'(1Xa,I4)')'lmax :', lmax
     ENDIF
   ENDIF
+
+!-------------------------------------------------------------------
+! initialize highl likelihood function
+! One needs defined externally
+!      a) Theory Cl for cosmological parameters used
+!      b) data Cl  (Planck)
+! Internally
+!      c) The code in LnLikelihood calls Lnl_highl that takes an
+!         amplitude and returns lnL for fixed a) and b) or zero
+!         if high_ell is not used
+
+  if (do_highl) then
+     call highl_likelihood_init()
+  endif
 
 !-------------------------------------------------------------------
 ! Read and sets: 

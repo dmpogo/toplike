@@ -6,6 +6,7 @@ MODULE Topology_Lmarg_mod
   USE Topology_types
   USE ctpp_eigen_mod
   USE nr_minimization
+  USE highl_likelihood_mod
   IMPLICIT NONE
 
   real(DP) :: ampl, trace, LnL_exp  ! amplitude, available for local routines
@@ -229,7 +230,7 @@ MODULE Topology_Lmarg_mod
        LnL_exp = DDOT(nmode_cut,map_signal,1,vec,1)
 
 !   trace has already been divided by 2
-       LnLikelihood = 0.5d0*LnL_exp + trace
+       LnLikelihood = 0.5d0*LnL_exp + trace + LnL_highl(ampl_in)
        write(0,*) 'Full noise:',ampl_in,LnLikelihood,trace,LnL_exp
 
 !   Analytic best amplitude and likelihood for zero noise - for information only

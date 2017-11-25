@@ -103,5 +103,6 @@ MODULE TOPOLOGY_TYPES
   LOGICAL  :: do_mask, do_rotate, find_best_angles
   LOGICAL  :: add_noise, add_noise_diag, add_noise_cov
   LOGICAL  :: do_smooth_data, do_smooth_ctpp, do_smooth_noise
+  LOGICAL  :: do_highl
 
 END MODULE TOPOLOGY_TYPES

@@ -45,16 +45,16 @@ LIB 	= -Vaxlib $(LAPACK) -lpthread  -L$(HEALPIX)/lib -lhealpix -lcfitsio
 
 INCLUDE = -I$(HEALPIX)/include -I$(MODULEDIR2)
 
-OBJ    	= Topology_types.o Topology_map_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
+OBJ    	= Topology_types.o Topology_map_mod.o highl_likelihood_mod.o nr_minimization.o lm_rotate.o ctpp_eigen_mod.o Topology_Lmarg_mod.o Topology_Lmarg.o
 
-OBJMAP  = Topology_types.o Topology_map_mod.o Topology_make_map.o lm_rotate.o ctpp_eigen_mod.o
+OBJMAP  = Topology_types.o Topology_map_mod.o Topology_make_map.o highl_likelihood_mod.o lm_rotate.o ctpp_eigen_mod.o
 
 OBJMERGE= merge_maps.o
 # ------------------------- Rules ----------------------------
 
 default: all
 
-all: topmarg topmap merge_maps
+all: topmarg topmap merge_maps convert_maps
 
 topmarg: $(OBJ) $(NRECIPES) $(CTPPPROC)
 	$(FC) $(FFLAGS) -o $@ $(OBJ) $(LIB) $(NRECIPES) $(CTPPPROC)
@@ -65,12 +65,16 @@ topmap: $(OBJMAP) $(CTPPPROC)
 merge_maps:	$(OBJMERGE)
 	$(FC) $(FFLAGS) -o $@ $(OBJMERGE) $(LIB)
 
+convert_maps: convert_maps.o
+	$(FC) $(FFLAGS) -o $@ convert_maps.o $(LIB)
+
 Topology_Lmarg.o      : Topology_types.o Topology_Lmarg_mod.o \
 			Topology_map_mod.o
 Topology_make_map.o   : Topology_types.o Topology_map_mod.o
 Topology_Lmarg_mod.o  : Topology_types.o ctpp_eigen_mod.o nr_minimization.o
 Topology_map_mod.o    : Topology_types.o 
 ctpp_eigen_mod.o      : Topology_types.o
+highl_likelihood_mod.o: Topology_types.o
 
 %.o    : %.f90
 	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@
@@ -81,7 +85,7 @@ ctpp_eigen_mod.o      : Topology_types.o
 tidy:
 	-rm -f $(OBJ) $(OBJMAP)
 clean: tidy
-	-rm -f topmarg topmap merge_maps
+	-rm -f topmarg topmap merge_maps convert_maps
 cleanall: clean
 	/bin/rm -f $(MODULEDIR1)/[!n]*.mod
 
